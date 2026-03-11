@@ -1,0 +1,25 @@
+# Go binaries
+/api
+/vendor-stub
+/settlement-stub
+*.exe
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+
+# Reports
+reports/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Execution manual (project-specific)
+execution_manual_v2.md
