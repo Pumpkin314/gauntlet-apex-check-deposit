@@ -1,0 +1,84 @@
+scenarios:
+  - name: clean_pass
+    description: "Happy path - check passes all validations"
+    trigger_account: ALPHA-001
+    vss_response:
+      iqa_status: pass
+      iqa_error_type: null
+      micr_status: success
+      duplicate_flag: false
+      amount_match: true
+      confidence_score: 0.97
+    expected_routing: "Analyzing (Funding Service)"
+
+  - name: iqa_fail_blur
+    description: "Image quality failure due to blur"
+    trigger_account: ALPHA-002
+    vss_response:
+      iqa_status: fail
+      iqa_error_type: blur
+      micr_status: null
+      duplicate_flag: false
+      amount_match: false
+      confidence_score: 0.0
+    expected_routing: "Rejected"
+
+  - name: iqa_fail_glare
+    description: "Image quality failure due to glare"
+    trigger_account: ALPHA-003
+    vss_response:
+      iqa_status: fail
+      iqa_error_type: glare
+      micr_status: null
+      duplicate_flag: false
+      amount_match: false
+      confidence_score: 0.0
+    expected_routing: "Rejected"
+
+  - name: micr_failure
+    description: "MICR read failure - routes to operator review"
+    trigger_account: ALPHA-004
+    vss_response:
+      iqa_status: pass
+      iqa_error_type: null
+      micr_status: fail
+      duplicate_flag: false
+      amount_match: true
+      confidence_score: 0.85
+    expected_routing: "Analyzing (flagged for review)"
+
+  - name: amount_mismatch
+    description: "OCR amount does not match submitted amount - routes to operator review"
+    trigger_account: ALPHA-005
+    vss_response:
+      iqa_status: pass
+      iqa_error_type: null
+      micr_status: success
+      duplicate_flag: false
+      amount_match: false
+      confidence_score: 0.92
+    expected_routing: "Analyzing (flagged for review)"
+
+  - name: duplicate_detected
+    description: "Duplicate check detected by vendor service"
+    trigger_account: BETA-001
+    vss_response:
+      iqa_status: pass
+      iqa_error_type: null
+      micr_status: success
+      duplicate_flag: true
+      amount_match: true
+      confidence_score: 0.97
+    expected_routing: "Rejected"
+
+  - name: ira_clean_pass
+    description: "IRA account - clean pass with contribution type defaulting"
+    trigger_account: ALPHA-IRA
+    vss_response:
+      iqa_status: pass
+      iqa_error_type: null
+      micr_status: success
+      duplicate_flag: false
+      amount_match: true
+      confidence_score: 0.96
+    expected_routing: "Analyzing (Funding Service)"
