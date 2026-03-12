@@ -144,6 +144,192 @@ func TestValidate_OCRAmount_EchoesSubmitted(t *testing.T) {
 	}
 }
 
+func TestValidate_IQABlur(t *testing.T) {
+	h := mustNewHandler(t)
+
+	w := postValidate(h, `{"account_id":"a0000000-0000-0000-0000-000000000002","amount":500.00}`, nil)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp validateResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.IQAStatus != "fail" {
+		t.Errorf("iqa_status: want %q, got %q", "fail", resp.IQAStatus)
+	}
+	if resp.IQAErrorType == nil {
+		t.Fatal("iqa_error_type: want non-nil")
+	}
+	if *resp.IQAErrorType != "blur" {
+		t.Errorf("iqa_error_type: want %q, got %q", "blur", *resp.IQAErrorType)
+	}
+	if resp.DuplicateFlag {
+		t.Error("duplicate_flag: want false")
+	}
+	if resp.ScenarioUsed != "iqa_fail_blur" {
+		t.Errorf("scenario_used: want %q, got %q", "iqa_fail_blur", resp.ScenarioUsed)
+	}
+}
+
+func TestValidate_IQAGlare(t *testing.T) {
+	h := mustNewHandler(t)
+
+	w := postValidate(h, `{"account_id":"a0000000-0000-0000-0000-000000000003","amount":500.00}`, nil)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp validateResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.IQAStatus != "fail" {
+		t.Errorf("iqa_status: want %q, got %q", "fail", resp.IQAStatus)
+	}
+	if resp.IQAErrorType == nil {
+		t.Fatal("iqa_error_type: want non-nil")
+	}
+	if *resp.IQAErrorType != "glare" {
+		t.Errorf("iqa_error_type: want %q, got %q", "glare", *resp.IQAErrorType)
+	}
+	if resp.DuplicateFlag {
+		t.Error("duplicate_flag: want false")
+	}
+	if resp.ScenarioUsed != "iqa_fail_glare" {
+		t.Errorf("scenario_used: want %q, got %q", "iqa_fail_glare", resp.ScenarioUsed)
+	}
+}
+
+func TestValidate_DuplicateDetected(t *testing.T) {
+	h := mustNewHandler(t)
+
+	w := postValidate(h, `{"account_id":"a0000000-0000-0000-0000-000000000007","amount":500.00}`, nil)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp validateResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.IQAStatus != "pass" {
+		t.Errorf("iqa_status: want %q, got %q", "pass", resp.IQAStatus)
+	}
+	if !resp.DuplicateFlag {
+		t.Error("duplicate_flag: want true")
+	}
+	if resp.DuplicateOriginalTxID == nil {
+		t.Fatal("duplicate_original_tx_id: want non-nil")
+	}
+	if *resp.DuplicateOriginalTxID == "" {
+		t.Error("duplicate_original_tx_id: want non-empty")
+	}
+	if resp.ScenarioUsed != "duplicate_detected" {
+		t.Errorf("scenario_used: want %q, got %q", "duplicate_detected", resp.ScenarioUsed)
+	}
+}
+
+func TestValidate_IRACleanPass(t *testing.T) {
+	h := mustNewHandler(t)
+
+	w := postValidate(h, `{"account_id":"a0000000-0000-0000-0000-000000000006","amount":500.00}`, nil)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp validateResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.IQAStatus != "pass" {
+		t.Errorf("iqa_status: want %q, got %q", "pass", resp.IQAStatus)
+	}
+	if resp.IQAErrorType != nil {
+		t.Errorf("iqa_error_type: want nil, got %v", *resp.IQAErrorType)
+	}
+	if resp.MICRData == nil {
+		t.Fatal("micr_data: want populated, got nil")
+	}
+	if resp.MICRData.Routing == "" {
+		t.Error("micr_data.routing: want non-empty")
+	}
+	if resp.DuplicateFlag {
+		t.Error("duplicate_flag: want false")
+	}
+	if resp.ScenarioUsed != "ira_clean_pass" {
+		t.Errorf("scenario_used: want %q, got %q", "ira_clean_pass", resp.ScenarioUsed)
+	}
+}
+
+func TestValidate_MICRFailure(t *testing.T) {
+	h := mustNewHandler(t)
+
+	w := postValidate(h, `{"account_id":"a0000000-0000-0000-0000-000000000004","amount":500.00}`, nil)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp validateResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.IQAStatus != "pass" {
+		t.Errorf("iqa_status: want %q, got %q", "pass", resp.IQAStatus)
+	}
+	if resp.MICRData != nil {
+		t.Errorf("micr_data: want nil, got %+v", resp.MICRData)
+	}
+	if resp.ConfidenceScore != 0.0 {
+		t.Errorf("confidence_score: want 0.0, got %f", resp.ConfidenceScore)
+	}
+	if resp.ScenarioUsed != "micr_failure" {
+		t.Errorf("scenario_used: want %q, got %q", "micr_failure", resp.ScenarioUsed)
+	}
+}
+
+func TestValidate_AmountMismatch(t *testing.T) {
+	h := mustNewHandler(t)
+
+	w := postValidate(h, `{"account_id":"a0000000-0000-0000-0000-000000000005","amount":500.00}`, nil)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp validateResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.IQAStatus != "pass" {
+		t.Errorf("iqa_status: want %q, got %q", "pass", resp.IQAStatus)
+	}
+	if resp.OCRAmount != 250.00 {
+		t.Errorf("ocr_amount: want 250.00, got %f", resp.OCRAmount)
+	}
+	if resp.MICRData == nil {
+		t.Fatal("micr_data: want populated, got nil")
+	}
+	if resp.MICRData.Routing == "" {
+		t.Error("micr_data.routing: want non-empty")
+	}
+	if resp.ScenarioUsed != "amount_mismatch" {
+		t.Errorf("scenario_used: want %q, got %q", "amount_mismatch", resp.ScenarioUsed)
+	}
+}
+
 func TestScenariosLoadedAtStartup(t *testing.T) {
 	// Verify scenarios are pre-loaded (byName and byCode populated) rather than read per request.
 	h := mustNewHandler(t)

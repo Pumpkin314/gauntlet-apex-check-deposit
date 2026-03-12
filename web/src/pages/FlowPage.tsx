@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
@@ -17,6 +17,20 @@ interface TransferCard {
   lastUpdate: string
 }
 
+interface SettlementBatch {
+  id: string
+  generated_at: string
+  count: number
+  status: string
+}
+
+interface SettlementHealth {
+  healthy: boolean
+  unbatched_count: number
+  ready_count: number
+  last_batch: SettlementBatch | null
+}
+
 const stateColors: Record<string, { bg: string; border: string; label: string }> = {
   Requested:  { bg: '#e3f2fd', border: '#1976d2', label: 'Requested' },
   Validating: { bg: '#e3f2fd', border: '#1976d2', label: 'Validating' },
@@ -32,7 +46,34 @@ export default function FlowPage() {
   const [transfers, setTransfers] = useState<Map<string, TransferCard>>(new Map())
   const [eventLog, setEventLog] = useState<TransferEvent[]>([])
   const [connected, setConnected] = useState(false)
+  const [settlement, setSettlement] = useState<SettlementHealth | null>(null)
+  const [triggering, setTriggering] = useState(false)
   const eventSourceRef = useRef<EventSource | null>(null)
+
+  const fetchSettlement = useCallback(() => {
+    fetch(`${API_URL}/health/settlement`)
+      .then(r => r.json())
+      .then((data: SettlementHealth) => setSettlement(data))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetchSettlement()
+    const interval = setInterval(fetchSettlement, 5000)
+    return () => clearInterval(interval)
+  }, [fetchSettlement])
+
+  const triggerSettlement = async () => {
+    setTriggering(true)
+    try {
+      await fetch(`${API_URL}/health/settlement/trigger`, { method: 'POST' })
+      fetchSettlement()
+    } catch {
+      // ignore
+    } finally {
+      setTriggering(false)
+    }
+  }
 
   useEffect(() => {
     function connect() {
@@ -100,6 +141,64 @@ export default function FlowPage() {
         <span style={{ fontSize: '0.85rem', color: '#666' }}>
           {connected ? 'Connected' : 'Reconnecting...'}
         </span>
+      </div>
+
+      {/* Settlement Status */}
+      <div style={{
+        marginBottom: '1.5rem',
+        padding: '0.75rem 1rem',
+        borderRadius: '6px',
+        background: settlement?.healthy === false ? '#fff3e0' : '#f5f5f5',
+        border: `1px solid ${settlement?.healthy === false ? '#ff9800' : '#ddd'}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1rem',
+        flexWrap: 'wrap',
+      }}>
+        <div style={{ flex: 1 }}>
+          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Settlement: </span>
+          {settlement === null && (
+            <span style={{ color: '#999', fontSize: '0.85rem' }}>Loading...</span>
+          )}
+          {settlement !== null && settlement.last_batch && (
+            <span style={{ fontSize: '0.85rem', color: '#388e3c' }}>
+              Batch generated at {new Date(settlement.last_batch.generated_at).toLocaleTimeString()},
+              {' '}{settlement.last_batch.count} deposit{settlement.last_batch.count !== 1 ? 's' : ''},{' '}
+              {settlement.last_batch.status}
+            </span>
+          )}
+          {settlement !== null && !settlement.last_batch && (
+            <span style={{ fontSize: '0.85rem' }}>
+              {settlement.ready_count} deposit{settlement.ready_count !== 1 ? 's' : ''} ready
+            </span>
+          )}
+          {settlement?.healthy === false && (
+            <span style={{
+              marginLeft: '0.75rem',
+              fontSize: '0.8rem',
+              color: '#e65100',
+              fontWeight: 600,
+            }}>
+              ⚠ {settlement.unbatched_count} unbatched transfer{settlement.unbatched_count !== 1 ? 's' : ''} from yesterday
+            </span>
+          )}
+        </div>
+        <button
+          onClick={triggerSettlement}
+          disabled={triggering}
+          style={{
+            padding: '0.4rem 0.9rem',
+            background: triggering ? '#bbb' : '#1976d2',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: triggering ? 'not-allowed' : 'pointer',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+          }}
+        >
+          {triggering ? 'Triggering...' : 'Trigger Settlement'}
+        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
