@@ -116,6 +116,68 @@ IDEM_RESULT=$(curl -sf -X POST "$API_URL/deposits" \
 IDEM_ID=$(echo "$IDEM_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 check "$IDEM_ID" "$TRANSFER_ID" "Same Idempotency-Key returns same transfer ID"
 
+# ---- 8. Trigger Settlement ----
+echo ""
+echo "8. Trigger settlement"
+SETTLE_RESULT=$(curl -sf -X POST "$API_URL/settlement/trigger")
+BATCH_COUNT=$(echo "$SETTLE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('batch_count', 0))")
+TOTAL_CHECKS=$(echo "$SETTLE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('total_checks', 0))")
+TOTAL_AMOUNT=$(echo "$SETTLE_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('total_amount', 0))")
+echo "  Batches: $BATCH_COUNT, Checks: $TOTAL_CHECKS, Amount: $TOTAL_AMOUNT"
+if [ "$BATCH_COUNT" -ge 1 ]; then pass "At least 1 settlement batch created"; else fail "Expected >= 1 batch, got $BATCH_COUNT"; fi
+if [ "$TOTAL_CHECKS" -ge 1 ]; then pass "At least 1 check in settlement"; else fail "Expected >= 1 check, got $TOTAL_CHECKS"; fi
+
+# ---- 9. Verify transfer is now Completed ----
+echo ""
+echo "9. Verify transfer reached Completed"
+SETTLED=$(curl -sf "$API_URL/deposits/$TRANSFER_ID")
+SETTLED_STATE=$(echo "$SETTLED" | python3 -c "import sys,json; print(json.load(sys.stdin)['state'])")
+check "$SETTLED_STATE" "Completed" "After settlement: state = Completed"
+
+# ---- 10. Verify settlement events in audit trail ----
+echo ""
+echo "10. Verify settlement events in audit trail"
+EVENTS_POST=$(curl -sf "$API_URL/deposits/$TRANSFER_ID/events")
+HAS_SETTLE=$(echo "$EVENTS_POST" | python3 -c "
+import sys, json
+events = json.load(sys.stdin)
+for e in events:
+    if e['step'] == 'settlement_completed':
+        print('True')
+        break
+else:
+    print('False')
+")
+check "$HAS_SETTLE" "True" "settlement_completed event in audit trail"
+
+# ---- 11. GET /settlement/status ----
+echo ""
+echo "11. Settlement status"
+SETTLE_STATUS=$(curl -sf "$API_URL/settlement/status")
+TOTAL_BATCHES=$(echo "$SETTLE_STATUS" | python3 -c "import sys,json; print(json.load(sys.stdin).get('total_batches', 0))")
+echo "  Total batches: $TOTAL_BATCHES"
+if [ "$TOTAL_BATCHES" -ge 1 ]; then pass "At least 1 batch in status"; else fail "Expected >= 1 batch in status"; fi
+
+# ---- 12. GET /settlement/batches ----
+echo ""
+echo "12. Settlement batches list"
+BATCHES=$(curl -sf "$API_URL/settlement/batches")
+BATCH_LIST_COUNT=$(echo "$BATCHES" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+echo "  Batches listed: $BATCH_LIST_COUNT"
+if [ "$BATCH_LIST_COUNT" -ge 1 ]; then pass "Batch list has entries"; else fail "Expected >= 1 batch in list"; fi
+
+FIRST_STATUS=$(echo "$BATCHES" | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['status'])")
+check "$FIRST_STATUS" "ACKNOWLEDGED" "Batch status = ACKNOWLEDGED"
+
+# ---- 13. Ledger still reconciles after settlement ----
+echo ""
+echo "13. Ledger reconciliation after settlement"
+HEALTH_LEDGER2=$(curl -sf "$API_URL/health/ledger")
+HEALTHY2=$(echo "$HEALTH_LEDGER2" | python3 -c "import sys,json; print(json.load(sys.stdin)['healthy'])")
+SUM2=$(echo "$HEALTH_LEDGER2" | python3 -c "import sys,json; print(json.load(sys.stdin)['sum'])")
+check "$HEALTHY2" "True" "Ledger still healthy after settlement"
+check "$SUM2" "0.00" "Reconciliation still = 0.00"
+
 # Summary
 echo ""
 echo "=== Results ==="
