@@ -71,6 +71,9 @@ func main() {
 		Log:      logger,
 	}
 
+	// Notification store
+	notificationStore := store.NewNotificationStore(db)
+
 	// Idempotency store
 	idempStore := &middleware.IdempotencyStore{DB: db}
 
@@ -86,6 +89,15 @@ func main() {
 	ledgerHandler := &handlers.LedgerHandler{
 		Ledger: ledgerService,
 	}
+
+	returnHandler := handlers.NewReturnHandler(
+		transferStore,
+		accountStore,
+		correspondentStore,
+		notificationStore,
+		ledgerService,
+		logger,
+	)
 
 	// SSE broadcaster for real-time events
 	broadcaster, err := events.NewBroadcaster(dbURL, "transfer_updates", logger)
@@ -151,6 +163,9 @@ func main() {
 	mux.HandleFunc("GET /deposits/{id}", depositHandler.GetDeposit)
 	mux.HandleFunc("GET /deposits/{id}/events", depositHandler.GetDepositEvents)
 	mux.HandleFunc("GET /deposits/{id}/images/{side}", depositHandler.GetDepositImage)
+
+	// Returns (settlement bank webhook — protected by bearer token)
+	mux.HandleFunc("POST /returns", middleware.SettlementAuth(returnHandler.ProcessReturn))
 
 	// Ledger
 	mux.HandleFunc("GET /ledger/balances", ledgerHandler.GetBalances)
