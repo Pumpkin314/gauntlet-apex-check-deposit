@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30000,
   retries: 1,
+  workers: 1, // tests share DB state — must run sequentially
   use: {
     baseURL: 'http://localhost:5173',
     headless: true,

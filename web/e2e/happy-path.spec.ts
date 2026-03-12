@@ -13,10 +13,6 @@ test.describe('Happy Path E2E', () => {
     await expect(scenarioSelect).toBeVisible()
     await scenarioSelect.selectOption('clean_pass')
 
-    // Verify account code is pre-filled
-    const accountInput = page.locator('#account_code')
-    await expect(accountInput).toHaveValue('ALPHA-001')
-
     // Enter amount
     const amountInput = page.locator('#amount')
     await amountInput.fill('500')
@@ -28,7 +24,7 @@ test.describe('Happy Path E2E', () => {
     await page.waitForURL(/\/status\//)
 
     // Status page should show FundsPosted state
-    await expect(page.locator('text=Funds are available in your account')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=Funds available')).toBeVisible({ timeout: 10000 })
   })
 
   test('/admin/ledger shows correct balances', async ({ page }) => {

@@ -34,6 +34,20 @@ echo "0. Health check"
 HEALTH=$(json_field "$(curl -sf "$API_URL/health")" "status")
 check "$HEALTH" "ok" "GET /health returns ok"
 
+# ---- 0b. Record starting balance ----
+BALANCES_BEFORE=$(curl -sf "$API_URL/ledger/balances")
+START_BAL=$(echo "$BALANCES_BEFORE" | python3 -c "
+import sys,json
+balances = json.load(sys.stdin)
+for b in balances:
+    if b['code'] == 'ALPHA-001':
+        print(b['balance'])
+        break
+else:
+    print('0.00')
+")
+echo "  Starting ALPHA-001 balance: $START_BAL"
+
 # ---- 1. Submit deposit (ALPHA-001, $500) ----
 echo ""
 echo "1. Submit deposit (ALPHA-001, \$500)"
@@ -147,11 +161,14 @@ else:
     print('NOT_FOUND')
 ")
 echo "  ALPHA-001 balance: $ALPHA001_BAL"
-# After deposit ($500) + return reversal (-$500) + fee (-$30) = -$30
-if python3 -c "bal=float('$ALPHA001_BAL'); assert bal < 0, f'expected negative, got {bal}'"; then
-  pass "ALPHA-001 balance is negative after return + fee"
+# After deposit (+$500) + return reversal (-$500) + fee (-$30), net change = -$30
+# Balance should be $30 less than the starting balance
+EXPECTED_CHANGE=$(python3 -c "print(f'{float(\"$ALPHA001_BAL\") - float(\"$START_BAL\"):.2f}')")
+echo "  Balance change: $EXPECTED_CHANGE (expected -30.00)"
+if python3 -c "assert abs(float('$EXPECTED_CHANGE') - (-30.0)) < 0.01, f'expected -30.00, got $EXPECTED_CHANGE'"; then
+  pass "ALPHA-001 balance decreased by fee amount (\$30)"
 else
-  fail "ALPHA-001 balance should be negative after return + fee (got $ALPHA001_BAL)"
+  fail "ALPHA-001 balance change should be -30.00 (got $EXPECTED_CHANGE)"
 fi
 
 # ---- 9. Return idempotency: already-Returned → 200 no-op ----
