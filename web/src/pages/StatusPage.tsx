@@ -14,6 +14,26 @@ interface Transfer {
   created_at: string
 }
 
+interface TransferEvent {
+  id: string
+  step: string
+  data?: Record<string, unknown>
+  created_at: string
+}
+
+const RETURN_REASON_CODES: Record<string, string> = {
+  R01: 'Insufficient Funds',
+  R02: 'Account Closed',
+  R03: 'No Account / Unable to Locate Account',
+  R04: 'Invalid Account Number',
+  R05: 'Unauthorized Debit to Consumer Account',
+  R06: 'Returned per ODFI Request',
+  R07: 'Authorization Revoked by Customer',
+  R08: 'Payment Stopped',
+  R09: 'Uncollected Funds',
+  R10: 'Customer Advises Not Authorized',
+}
+
 const TERMINAL_STATES = new Set(['Rejected', 'Completed', 'Returned'])
 
 const STATE_STYLES: Record<string, { color: string; label: string }> = {
@@ -33,6 +53,7 @@ export default function StatusPage() {
   const { id } = useParams<{ id: string }>()
   const [transfer, setTransfer] = useState<Transfer | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [returnReason, setReturnReason] = useState<string | null>(null)
   // Keep a ref so the polling callback can read the latest state
   const stateRef = useRef<string | null>(null)
 
@@ -48,6 +69,20 @@ export default function StatusPage() {
           stateRef.current = t.state
           setTransfer(t)
           setFetchError(null)
+
+          // Fetch return events to extract the reason code
+          if (t.state === 'Returned') {
+            try {
+              const events = await apiFetch<TransferEvent[]>(`/deposits/${id}/events`)
+              const returnEvent = events.find(e => e.step === 'return_received')
+              if (returnEvent?.data) {
+                const code = (returnEvent.data['reason_code'] ?? returnEvent.data['return_reason_code']) as string | undefined
+                if (code) setReturnReason(RETURN_REASON_CODES[code] ?? code)
+              }
+            } catch {
+              // events not critical
+            }
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -138,6 +173,34 @@ export default function StatusPage() {
                 </Link>
               </div>
             </>
+          )}
+
+          {transfer.state === 'Returned' && (
+            <div style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              background: '#fce4ec',
+              border: '1px solid #e91e63',
+              borderRadius: '6px',
+            }}>
+              <p style={{ margin: '0 0 0.5rem', fontWeight: 600, color: '#880e4f' }}>
+                Deposit reversed
+              </p>
+              <p style={{ margin: '0 0 0.4rem', fontSize: '0.9rem' }}>
+                Your deposit of {transfer.currency} {Number(transfer.amount).toFixed(2)} has been returned by your bank.
+              </p>
+              {returnReason && (
+                <p style={{ margin: '0 0 0.4rem', fontSize: '0.9rem' }}>
+                  <strong>Return reason:</strong> {returnReason}
+                </p>
+              )}
+              <p style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', color: '#b71c1c' }}>
+                <strong>$30.00 returned check fee</strong> has been applied to your account.
+              </p>
+              <Link to="/deposit" style={{ color: '#880e4f', fontSize: '0.9rem' }}>
+                ← Start a new deposit
+              </Link>
+            </div>
           )}
         </>
       )}
