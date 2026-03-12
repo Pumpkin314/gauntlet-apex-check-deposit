@@ -70,7 +70,7 @@ test.describe('Manual Review E2E', () => {
 
     // Verify on status page
     await page.goto(`/status/${transfer.id}`)
-    await expect(page.locator('text=Funds are available in your account')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Funds available')).toBeVisible({ timeout: 5000 })
   })
 
   test('operator rejects ALPHA-005 → transfer shows Rejected', async ({ page }) => {

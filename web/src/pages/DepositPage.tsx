@@ -3,36 +3,36 @@ import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import DepositError from '../components/DepositError'
 
-// Demo scenarios mapped to seed account IDs (from db/seed.sql)
+// Demo scenarios mapped to seed account codes (from db/seed.sql)
 const SCENARIOS = [
   {
     label: 'Alpha — Clean Pass (ALPHA-001)',
-    accountId: 'a0000000-0000-0000-0000-000000000001',
+    accountCode: 'ALPHA-001',
     scenarioName: 'clean_pass',
   },
   {
     label: 'Alpha — IQA Blur (ALPHA-002)',
-    accountId: 'a0000000-0000-0000-0000-000000000002',
+    accountCode: 'ALPHA-002',
     scenarioName: 'iqa_fail_blur',
   },
   {
     label: 'Alpha — IQA Glare (ALPHA-003)',
-    accountId: 'a0000000-0000-0000-0000-000000000003',
+    accountCode: 'ALPHA-003',
     scenarioName: 'iqa_fail_glare',
   },
   {
     label: 'Beta — Duplicate Check (BETA-001)',
-    accountId: 'a0000000-0000-0000-0000-000000000007',
+    accountCode: 'BETA-001',
     scenarioName: 'duplicate_detected',
   },
   {
     label: 'Beta — Over Limit (BETA-002)',
-    accountId: 'a0000000-0000-0000-0000-000000000008',
+    accountCode: 'BETA-002',
     scenarioName: 'clean_pass',
   },
   {
     label: 'Alpha — MICR Failure (ALPHA-004)',
-    accountId: 'a0000000-0000-0000-0000-000000000004',
+    accountCode: 'ALPHA-004',
     scenarioName: 'micr_failure',
   },
 ] as const
@@ -49,13 +49,13 @@ const PLACEHOLDER_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAA
 
 export default function DepositPage() {
   const navigate = useNavigate()
-  const [scenarioIndex, setScenarioIndex] = useState(0)
+  const [scenarioName, setScenarioName] = useState(SCENARIOS[0].scenarioName)
   const [amount, setAmount] = useState('')
   const [loading, setLoading] = useState(false)
   const [rejected, setRejected] = useState<RejectedTransfer | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const selectedScenario = SCENARIOS[scenarioIndex]
+  const selectedScenario = SCENARIOS.find(s => s.scenarioName === scenarioName) ?? SCENARIOS[0]
 
   function resetForm() {
     setRejected(null)
@@ -82,7 +82,7 @@ export default function DepositPage() {
           'X-Scenario': selectedScenario.scenarioName,
         },
         body: JSON.stringify({
-          account_id: selectedScenario.accountId,
+          account_code: selectedScenario.accountCode,
           amount: parseFloat(amount),
           front_image: PLACEHOLDER_IMAGE,
           back_image: PLACEHOLDER_IMAGE,
@@ -144,8 +144,8 @@ export default function DepositPage() {
             </label>
             <select
               id="scenario"
-              value={scenarioIndex}
-              onChange={(e) => setScenarioIndex(Number(e.target.value))}
+              value={scenarioName}
+              onChange={(e) => setScenarioName(e.target.value)}
               style={{
                 width: '100%',
                 padding: '0.5rem',
@@ -154,8 +154,8 @@ export default function DepositPage() {
                 fontSize: '0.95rem',
               }}
             >
-              {SCENARIOS.map((s, i) => (
-                <option key={s.scenarioName} value={i}>
+              {SCENARIOS.map((s) => (
+                <option key={s.scenarioName} value={s.scenarioName}>
                   {s.label}
                 </option>
               ))}

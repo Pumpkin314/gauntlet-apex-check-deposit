@@ -29,8 +29,8 @@ test.describe('Rejection Paths E2E', () => {
     expect(transfer.error_code).toBe('VSS_IQA_BLUR')
 
     await page.goto(`/status/${transfer.id}`)
-    await expect(page.locator('text=Your deposit was not accepted')).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('text=VSS_IQA_BLUR')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Deposit not accepted')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Image too blurry')).toBeVisible({ timeout: 5000 })
   })
 
   test('ALPHA-003 → glare error message displayed', async ({ page }) => {
@@ -39,8 +39,8 @@ test.describe('Rejection Paths E2E', () => {
     expect(transfer.error_code).toBe('VSS_IQA_GLARE')
 
     await page.goto(`/status/${transfer.id}`)
-    await expect(page.locator('text=Your deposit was not accepted')).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('text=VSS_IQA_GLARE')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Deposit not accepted')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Glare detected')).toBeVisible({ timeout: 5000 })
   })
 
   test('BETA-001 → duplicate error displayed', async ({ page }) => {
@@ -49,8 +49,8 @@ test.describe('Rejection Paths E2E', () => {
     expect(transfer.error_code).toBe('VSS_DUPLICATE_DETECTED')
 
     await page.goto(`/status/${transfer.id}`)
-    await expect(page.locator('text=Your deposit was not accepted')).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('text=VSS_DUPLICATE_DETECTED')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Deposit not accepted')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=already been deposited')).toBeVisible({ timeout: 5000 })
   })
 
   test('over-limit $5001 → FS rejection displayed', async ({ page }) => {
@@ -59,8 +59,8 @@ test.describe('Rejection Paths E2E', () => {
     expect(transfer.error_code).toBe('FS_OVER_DEPOSIT_LIMIT')
 
     await page.goto(`/status/${transfer.id}`)
-    await expect(page.locator('text=Your deposit was not accepted')).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('text=FS_OVER_DEPOSIT_LIMIT')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Deposit not accepted')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Maximum single deposit')).toBeVisible({ timeout: 5000 })
   })
 
   test('rejected transfers produce no ledger entries', async ({ page }) => {
