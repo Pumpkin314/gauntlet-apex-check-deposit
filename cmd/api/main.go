@@ -158,11 +158,11 @@ func main() {
 	mux.HandleFunc("GET /health/ledger", ledgerHandler.HealthLedger)
 
 	// Settlement health
-	settlementHandler := &handlers.SettlementHealthHandler{
+	settlementHealthHandler := &handlers.SettlementHealthHandler{
 		Querier: &sqlSettlementQuerier{db: db},
 	}
-	mux.HandleFunc("GET /health/settlement", settlementHandler.Health)
-	mux.HandleFunc("POST /health/settlement/trigger", settlementHandler.Trigger)
+	mux.HandleFunc("GET /health/settlement", settlementHealthHandler.Health)
+	mux.HandleFunc("POST /health/settlement/trigger", settlementHealthHandler.Trigger)
 
 	// SSE events stream
 	mux.HandleFunc("GET /events/stream", eventsHandler.Stream)
