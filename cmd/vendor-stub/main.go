@@ -9,7 +9,10 @@ import (
 )
 
 func main() {
-	port := os.Getenv("VSS_PORT")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = os.Getenv("VSS_PORT")
+	}
 	if port == "" {
 		port = "8081"
 	}

@@ -14,7 +14,10 @@ import (
 )
 
 func main() {
-	port := os.Getenv("SETTLEMENT_PORT")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = os.Getenv("SETTLEMENT_PORT")
+	}
 	if port == "" {
 		port = "8082"
 	}

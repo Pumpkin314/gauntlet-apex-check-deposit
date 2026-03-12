@@ -121,9 +121,10 @@ func run(ctx *pulumi.Context) error {
 
 	// ── GCS bucket for check images ──────────────────────────────────────────
 	_, err = storage.NewBucket(ctx, "apex-deposits", &storage.BucketArgs{
-		Project:  pulumi.String(project),
-		Location: pulumi.String(region),
-		Name:     pulumi.Sprintf("apex-deposits-%s", project),
+		Project:                  pulumi.String(project),
+		Location:                 pulumi.String(region),
+		Name:                     pulumi.Sprintf("apex-deposits-%s", project),
+		UniformBucketLevelAccess: pulumi.Bool(true),
 	})
 	if err != nil {
 		return err
@@ -194,6 +195,10 @@ func run(ctx *pulumi.Context) error {
 						&cloudrunv2.ServiceTemplateContainerEnvArgs{
 							Name:  pulumi.String("VSS_PORT"),
 							Value: pulumi.String("8081"),
+						},
+						&cloudrunv2.ServiceTemplateContainerEnvArgs{
+							Name:  pulumi.String("SCENARIOS_PATH"),
+							Value: pulumi.String("/scenarios/scenarios.yaml"),
 						},
 					},
 				},
