@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Header from './components/Header'
+import { setAuthToken } from './api/client'
 import AdminLayout from './components/AdminLayout'
 import DepositPage from './pages/DepositPage'
 import StatusPage from './pages/StatusPage'
@@ -25,6 +26,11 @@ export const DEMO_USERS: DemoUser[] = [
 
 function App() {
   const [currentUser, setCurrentUser] = useState<DemoUser>(DEMO_USERS[0])
+
+  // Sync auth token whenever the demo user changes
+  useEffect(() => {
+    setAuthToken(currentUser.id)
+  }, [currentUser])
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>

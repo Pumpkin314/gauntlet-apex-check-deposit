@@ -71,8 +71,11 @@ func main() {
 		Log:      logger,
 	}
 
-	// Notification store
+	// Notification store + handler
 	notificationStore := store.NewNotificationStore(db)
+	notificationHandler := &handlers.NotificationHandler{
+		Notifications: notificationStore,
+	}
 
 	// Idempotency store
 	idempStore := &middleware.IdempotencyStore{DB: db}
@@ -131,7 +134,7 @@ func main() {
 		Log:       logger,
 	}
 
-	settlementHandler := &handlers.SettlementHandler{
+	fullSettlementHandler := &handlers.SettlementHandler{
 		Engine:        settlementEngine,
 		Batches:       settlementStore,
 		SettlementURL: settlementBankURL,
@@ -187,9 +190,14 @@ func main() {
 	mux.HandleFunc("POST /operator/actions", middleware.Auth(operatorHandler.PostAction))
 
 	// Settlement
-	mux.HandleFunc("POST /settlement/trigger", settlementHandler.Trigger)
-	mux.HandleFunc("GET /settlement/status", settlementHandler.Status)
-	mux.HandleFunc("GET /settlement/batches", settlementHandler.ListBatches)
+	mux.HandleFunc("POST /settlement/trigger", fullSettlementHandler.Trigger)
+	mux.HandleFunc("GET /settlement/status", fullSettlementHandler.Status)
+	mux.HandleFunc("GET /settlement/batches", fullSettlementHandler.ListBatches)
+	mux.HandleFunc("POST /admin/simulate-return", fullSettlementHandler.SimulateReturn)
+
+	// Notifications (investor auth)
+	mux.HandleFunc("GET /notifications", middleware.Auth(notificationHandler.GetNotifications))
+	mux.HandleFunc("PATCH /notifications/{id}/read", middleware.Auth(notificationHandler.MarkRead))
 
 	// Scenarios
 	if scenariosHandler != nil {

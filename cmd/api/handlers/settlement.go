@@ -180,6 +180,61 @@ func (h *SettlementHandler) submitToSettlementBank(batchID string, fileData []by
 	return &ack, nil
 }
 
+// SimulateReturn handles POST /admin/simulate-return.
+// Proxies to the Settlement Bank stub's POST /settlement/return, which triggers
+// the return webhook back to POST /returns (implemented in PR 5.1).
+func (h *SettlementHandler) SimulateReturn(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var req struct {
+		TransferID string `json:"transfer_id"`
+		ReasonCode string `json:"reason_code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+		return
+	}
+	if req.TransferID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "transfer_id is required"})
+		return
+	}
+	if req.ReasonCode == "" {
+		req.ReasonCode = "R01"
+	}
+
+	payload, _ := json.Marshal(map[string]string{
+		"transfer_id":        req.TransferID,
+		"return_reason_code": req.ReasonCode,
+	})
+
+	token := os.Getenv("SETTLEMENT_BANK_TOKEN")
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", h.SettlementURL+"/settlement/return", bytes.NewReader(payload))
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		h.Log.ErrorContext(ctx, "simulate return: settlement bank call failed",
+			"transfer_id", req.TransferID, "error", err)
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "settlement bank unavailable"})
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	h.Log.Info("simulate return triggered",
+		"transfer_id", req.TransferID, "reason_code", req.ReasonCode)
+	writeJSON(w, http.StatusOK, result)
+}
+
 func batchToJSON(b *settlement.Batch) map[string]interface{} {
 	result := map[string]interface{}{
 		"id":               b.ID.String(),

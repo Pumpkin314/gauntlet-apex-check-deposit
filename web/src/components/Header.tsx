@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { DEMO_USERS, type DemoUser } from '../App'
+import NotificationBell from './NotificationBell'
 
 interface HeaderProps {
   currentUser: DemoUser
@@ -27,7 +28,10 @@ export default function Header({ currentUser, onUserChange }: HeaderProps) {
           <Link to="/admin/flow" style={{ color: '#ccc', textDecoration: 'none' }}>Admin</Link>
         </nav>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        {currentUser.role === 'investor' && (
+          <NotificationBell userKey={currentUser.id} />
+        )}
         <label htmlFor="role-switcher" style={{ fontSize: '0.85rem', color: '#aaa' }}>Role:</label>
         <select
           id="role-switcher"
