@@ -59,6 +59,14 @@ func (s *AccountStore) GetOmnibusForCorrespondent(ctx context.Context, correspon
 	return id, nil
 }
 
+// SetStatus updates the status of an account (e.g. 'ACTIVE' → 'COLLECTIONS').
+func (s *AccountStore) SetStatus(ctx context.Context, id uuid.UUID, status string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE accounts SET status = $1 WHERE id = $2`,
+		status, id)
+	return err
+}
+
 // scanAccount scans a single row into an Account. Handles nullable correspondent_id.
 func scanAccount(row *sql.Row) (*Account, error) {
 	a := &Account{}

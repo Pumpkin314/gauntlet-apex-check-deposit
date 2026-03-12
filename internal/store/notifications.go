@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Notification is a row from the notifications table.
@@ -29,17 +31,11 @@ func NewNotificationStore(db *sql.DB) *NotificationStore {
 	return &NotificationStore{db: db}
 }
 
-// Create inserts a new notification row.
-func (s *NotificationStore) Create(ctx context.Context, accountID, transferID, notifType, message string) error {
-	if transferID != "" {
-		_, err := s.db.ExecContext(ctx,
-			`INSERT INTO notifications (account_id, transfer_id, type, message) VALUES ($1, $2, $3, $4)`,
-			accountID, transferID, notifType, message)
-		return err
-	}
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO notifications (account_id, type, message) VALUES ($1, $2, $3)`,
-		accountID, notifType, message)
+// CreateNotification inserts a new notification row.
+// Used by the Return Handler (PR 5.1) when processing returned checks.
+func (s *NotificationStore) CreateNotification(ctx context.Context, accountID, transferID uuid.UUID, notifType, message string) error {
+	const q = `INSERT INTO notifications (account_id, transfer_id, type, message) VALUES ($1, $2, $3, $4)`
+	_, err := s.db.ExecContext(ctx, q, accountID, transferID, notifType, message)
 	return err
 }
 
