@@ -47,6 +47,7 @@ export default function FlowPage() {
   const [eventLog, setEventLog] = useState<TransferEvent[]>([])
   const [connected, setConnected] = useState(false)
   const [settlement, setSettlement] = useState<SettlementHealth | null>(null)
+  const [triggering, setTriggering] = useState(false)
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const fetchSettlement = useCallback(() => {
@@ -61,6 +62,18 @@ export default function FlowPage() {
     const interval = setInterval(fetchSettlement, 5000)
     return () => clearInterval(interval)
   }, [fetchSettlement])
+
+  const triggerSettlement = async () => {
+    setTriggering(true)
+    try {
+      await fetch(`${API_URL}/health/settlement/trigger`, { method: 'POST' })
+      fetchSettlement()
+    } catch {
+      // ignore
+    } finally {
+      setTriggering(false)
+    }
+  }
 
   useEffect(() => {
     function connect() {
@@ -137,33 +150,55 @@ export default function FlowPage() {
         borderRadius: '6px',
         background: settlement?.healthy === false ? '#fff3e0' : '#f5f5f5',
         border: `1px solid ${settlement?.healthy === false ? '#ff9800' : '#ddd'}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1rem',
+        flexWrap: 'wrap',
       }}>
-        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Settlement: </span>
-        {settlement === null && (
-          <span style={{ color: '#999', fontSize: '0.85rem' }}>Loading...</span>
-        )}
-        {settlement !== null && settlement.last_batch && (
-          <span style={{ fontSize: '0.85rem', color: '#388e3c' }}>
-            Batch generated at {new Date(settlement.last_batch.generated_at).toLocaleTimeString()},
-            {' '}{settlement.last_batch.count} deposit{settlement.last_batch.count !== 1 ? 's' : ''},{' '}
-            {settlement.last_batch.status}
-          </span>
-        )}
-        {settlement !== null && !settlement.last_batch && (
-          <span style={{ fontSize: '0.85rem' }}>
-            {settlement.ready_count} deposit{settlement.ready_count !== 1 ? 's' : ''} ready
-          </span>
-        )}
-        {settlement?.healthy === false && (
-          <span style={{
-            marginLeft: '0.75rem',
-            fontSize: '0.8rem',
-            color: '#e65100',
+        <div style={{ flex: 1 }}>
+          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Settlement: </span>
+          {settlement === null && (
+            <span style={{ color: '#999', fontSize: '0.85rem' }}>Loading...</span>
+          )}
+          {settlement !== null && settlement.last_batch && (
+            <span style={{ fontSize: '0.85rem', color: '#388e3c' }}>
+              Batch generated at {new Date(settlement.last_batch.generated_at).toLocaleTimeString()},
+              {' '}{settlement.last_batch.count} deposit{settlement.last_batch.count !== 1 ? 's' : ''},{' '}
+              {settlement.last_batch.status}
+            </span>
+          )}
+          {settlement !== null && !settlement.last_batch && (
+            <span style={{ fontSize: '0.85rem' }}>
+              {settlement.ready_count} deposit{settlement.ready_count !== 1 ? 's' : ''} ready
+            </span>
+          )}
+          {settlement?.healthy === false && (
+            <span style={{
+              marginLeft: '0.75rem',
+              fontSize: '0.8rem',
+              color: '#e65100',
+              fontWeight: 600,
+            }}>
+              ⚠ {settlement.unbatched_count} unbatched transfer{settlement.unbatched_count !== 1 ? 's' : ''} from yesterday
+            </span>
+          )}
+        </div>
+        <button
+          onClick={triggerSettlement}
+          disabled={triggering}
+          style={{
+            padding: '0.4rem 0.9rem',
+            background: triggering ? '#bbb' : '#1976d2',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: triggering ? 'not-allowed' : 'pointer',
+            fontSize: '0.85rem',
             fontWeight: 600,
-          }}>
-            ⚠ {settlement.unbatched_count} unbatched transfer{settlement.unbatched_count !== 1 ? 's' : ''} from yesterday
-          </span>
-        )}
+          }}
+        >
+          {triggering ? 'Triggering...' : 'Trigger Settlement'}
+        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
