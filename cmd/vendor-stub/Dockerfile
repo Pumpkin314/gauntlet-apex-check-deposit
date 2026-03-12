@@ -8,5 +8,6 @@ RUN CGO_ENABLED=0 go build -o /vendor-stub ./cmd/vendor-stub
 FROM alpine:3.19
 RUN apk add --no-cache curl
 COPY --from=builder /vendor-stub /vendor-stub
+COPY --from=builder /app/test-scenarios /scenarios
 EXPOSE 8081
 CMD ["/vendor-stub"]

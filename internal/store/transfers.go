@@ -158,6 +158,99 @@ func (s *TransferStore) Notify(ctx context.Context, transferID string, payload m
 	return err
 }
 
+// SetErrorCode sets the error_code on a transfer.
+func (s *TransferStore) SetErrorCode(ctx context.Context, transferID, errorCode string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE transfers SET error_code = $1, updated_at = NOW() WHERE id = $2`,
+		errorCode, transferID)
+	return err
+}
+
+// SetReviewReason sets the review_reason on a transfer (flags it for operator queue).
+func (s *TransferStore) SetReviewReason(ctx context.Context, transferID, reason string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE transfers SET review_reason = $1, updated_at = NOW() WHERE id = $2`,
+		reason, transferID)
+	return err
+}
+
+// SetContributionType sets the contribution_type on a transfer.
+func (s *TransferStore) SetContributionType(ctx context.Context, transferID, ct string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE transfers SET contribution_type = $1, updated_at = NOW() WHERE id = $2`,
+		ct, transferID)
+	return err
+}
+
+// SetVSSResults updates vendor service results on a transfer.
+func (s *TransferStore) SetVSSResults(ctx context.Context, transferID string, vendorTxID string, confidence float64, micrData map[string]interface{}) error {
+	var micrJSON []byte
+	if micrData != nil {
+		var err error
+		micrJSON, err = json.Marshal(micrData)
+		if err != nil {
+			return fmt.Errorf("marshal micr_data: %w", err)
+		}
+	}
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE transfers SET vendor_transaction_id = $1, confidence_score = $2, micr_data = $3, updated_at = NOW() WHERE id = $4`,
+		vendorTxID, confidence, micrJSON, transferID)
+	return err
+}
+
+// SetFromAccountID updates from_account_id (omnibus) after funding resolution.
+func (s *TransferStore) SetFromAccountID(ctx context.Context, transferID, fromAccountID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE transfers SET from_account_id = $1, updated_at = NOW() WHERE id = $2`,
+		fromAccountID, transferID)
+	return err
+}
+
+// SetImageRefs sets the front and back image references.
+func (s *TransferStore) SetImageRefs(ctx context.Context, transferID, front, back string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE transfers SET front_image_ref = $1, back_image_ref = $2, updated_at = NOW() WHERE id = $3`,
+		front, back, transferID)
+	return err
+}
+
+// GetEvents returns all transfer_events for a transfer, ordered by created_at.
+func (s *TransferStore) GetEvents(ctx context.Context, transferID string) ([]TransferEvent, error) {
+	const q = `
+		SELECT id, transfer_id, step, actor, data, created_at
+		FROM transfer_events
+		WHERE transfer_id = $1
+		ORDER BY created_at`
+	rows, err := s.db.QueryContext(ctx, q, transferID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var events []TransferEvent
+	for rows.Next() {
+		var e TransferEvent
+		var dataRaw []byte
+		if err := rows.Scan(&e.ID, &e.TransferID, &e.Step, &e.Actor, &dataRaw, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		if dataRaw != nil {
+			json.Unmarshal(dataRaw, &e.Data)
+		}
+		events = append(events, e)
+	}
+	return events, rows.Err()
+}
+
+// TransferEvent is a row from the transfer_events table.
+type TransferEvent struct {
+	ID         string                 `json:"id"`
+	TransferID string                 `json:"transfer_id"`
+	Step       string                 `json:"step"`
+	Actor      *string                `json:"actor"`
+	Data       map[string]interface{} `json:"data"`
+	CreatedAt  time.Time              `json:"created_at"`
+}
+
 // scanTransfer scans the minimal columns returned by Create.
 func scanTransfer(row *sql.Row) (*Transfer, error) {
 	var t Transfer
