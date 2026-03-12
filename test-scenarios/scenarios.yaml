@@ -19,7 +19,7 @@ scenarios:
     trigger_account: ALPHA-002
     response:
       iqa_status: "fail"
-      iqa_error_type: "VSS_IQA_BLUR"
+      iqa_error_type: "blur"
       micr_data: null
       confidence_score: 0.0
       duplicate_flag: false
@@ -31,7 +31,7 @@ scenarios:
     trigger_account: ALPHA-003
     response:
       iqa_status: "fail"
-      iqa_error_type: "VSS_IQA_GLARE"
+      iqa_error_type: "glare"
       micr_data: null
       confidence_score: 0.0
       duplicate_flag: false
@@ -45,7 +45,7 @@ scenarios:
       iqa_status: "pass"
       iqa_error_type: "VSS_MICR_READ_FAIL"
       micr_data: null
-      confidence_score: 0.85
+      confidence_score: 0.0
       duplicate_flag: false
       duplicate_original_tx_id: null
     expected_routing: "Analyzing (flagged for review)"
@@ -60,7 +60,7 @@ scenarios:
         routing: "021000021"
         account: "123456789"
         check_number: "1005"
-      ocr_amount_override: 499.00
+      ocr_amount_override: 250.00
       confidence_score: 0.92
       duplicate_flag: false
       duplicate_original_tx_id: null
