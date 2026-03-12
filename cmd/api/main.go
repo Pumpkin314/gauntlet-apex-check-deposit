@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -155,6 +157,13 @@ func main() {
 	mux.HandleFunc("GET /ledger/entries", ledgerHandler.GetEntries)
 	mux.HandleFunc("GET /health/ledger", ledgerHandler.HealthLedger)
 
+	// Settlement health
+	settlementHandler := &handlers.SettlementHealthHandler{
+		Querier: &sqlSettlementQuerier{db: db},
+	}
+	mux.HandleFunc("GET /health/settlement", settlementHandler.Health)
+	mux.HandleFunc("POST /health/settlement/trigger", settlementHandler.Trigger)
+
 	// SSE events stream
 	mux.HandleFunc("GET /events/stream", eventsHandler.Stream)
 
@@ -180,6 +189,89 @@ func main() {
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
+}
+
+// sqlSettlementQuerier implements handlers.SettlementQuerier using *sql.DB.
+// It lives in main.go because cmd/api already owns the DB connection.
+type sqlSettlementQuerier struct {
+	db *sql.DB
+}
+
+func (s *sqlSettlementQuerier) CountUnbatched(ctx context.Context, cutoff time.Time) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM transfers
+		WHERE state = 'FundsPosted'
+		  AND settlement_batch_id IS NULL
+		  AND submitted_at < $1`, cutoff).Scan(&count)
+	return count, err
+}
+
+func (s *sqlSettlementQuerier) CountAllUnbatched(ctx context.Context) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM transfers
+		WHERE state = 'FundsPosted'
+		  AND settlement_batch_id IS NULL`).Scan(&count)
+	return count, err
+}
+
+func (s *sqlSettlementQuerier) LastBatch(ctx context.Context) (*handlers.SettlementBatchInfo, error) {
+	var b handlers.SettlementBatchInfo
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id::text, created_at, COALESCE(record_count, 0), status
+		FROM settlement_batches
+		ORDER BY created_at DESC LIMIT 1`).Scan(&b.ID, &b.GeneratedAt, &b.Count, &b.Status)
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func (s *sqlSettlementQuerier) CreateBatch(ctx context.Context) (*handlers.SettlementBatchInfo, error) {
+	// Find the first correspondent that has unbatched FundsPosted transfers.
+	var corrID string
+	var ready int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT correspondent_id::text, COUNT(*)
+		FROM transfers
+		WHERE state = 'FundsPosted' AND settlement_batch_id IS NULL
+		GROUP BY correspondent_id
+		LIMIT 1`).Scan(&corrID, &ready)
+	if err != nil {
+		// No unbatched transfers — use first correspondent for an empty demo batch.
+		if err2 := s.db.QueryRowContext(ctx, `SELECT id::text FROM correspondents LIMIT 1`).Scan(&corrID); err2 != nil {
+			return nil, fmt.Errorf("no correspondents found: %w", err2)
+		}
+		ready = 0
+	}
+
+	var batchID string
+	var createdAt time.Time
+	err = s.db.QueryRowContext(ctx, `
+		INSERT INTO settlement_batches (correspondent_id, cutoff_date, status, record_count)
+		VALUES ($1::uuid, CURRENT_DATE, 'ACKNOWLEDGED', $2)
+		RETURNING id::text, created_at`, corrID, ready).Scan(&batchID, &createdAt)
+	if err != nil {
+		return nil, fmt.Errorf("insert settlement_batch: %w", err)
+	}
+
+	if ready > 0 {
+		_, err = s.db.ExecContext(ctx, `
+			UPDATE transfers
+			SET settlement_batch_id = $1::uuid
+			WHERE state = 'FundsPosted' AND settlement_batch_id IS NULL`, batchID)
+		if err != nil {
+			return nil, fmt.Errorf("link transfers to batch: %w", err)
+		}
+	}
+
+	return &handlers.SettlementBatchInfo{
+		ID:          batchID,
+		GeneratedAt: createdAt,
+		Count:       ready,
+		Status:      "ACKNOWLEDGED",
+	}, nil
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
