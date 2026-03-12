@@ -1,81 +1,108 @@
-import { useState, useEffect } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { apiFetch } from '../api/client'
+import DepositError from '../components/DepositError'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+// Demo scenarios mapped to seed account IDs (from db/seed.sql)
+const SCENARIOS = [
+  {
+    label: 'Alpha — Clean Pass (ALPHA-001)',
+    accountId: 'a0000000-0000-0000-0000-000000000001',
+    scenarioName: 'clean_pass',
+  },
+  {
+    label: 'Alpha — IQA Blur (ALPHA-002)',
+    accountId: 'a0000000-0000-0000-0000-000000000002',
+    scenarioName: 'iqa_fail_blur',
+  },
+  {
+    label: 'Alpha — IQA Glare (ALPHA-003)',
+    accountId: 'a0000000-0000-0000-0000-000000000003',
+    scenarioName: 'iqa_fail_glare',
+  },
+  {
+    label: 'Beta — Duplicate Check (BETA-001)',
+    accountId: 'a0000000-0000-0000-0000-000000000007',
+    scenarioName: 'duplicate_detected',
+  },
+  {
+    label: 'Beta — Over Limit (BETA-002)',
+    accountId: 'a0000000-0000-0000-0000-000000000008',
+    scenarioName: 'clean_pass',
+  },
+  {
+    label: 'Alpha — MICR Failure (ALPHA-004)',
+    accountId: 'a0000000-0000-0000-0000-000000000004',
+    scenarioName: 'micr_failure',
+  },
+] as const
 
-interface Scenario {
-  name: string
-  description: string
-  trigger_account: string
+interface RejectedTransfer {
+  id: string
+  error_code: string
+  user_msg?: string
+  duplicate_original_tx_id?: string
 }
+
+// Minimal placeholder images for the demo (the API requires front/back image fields)
+const PLACEHOLDER_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
 export default function DepositPage() {
   const navigate = useNavigate()
-  const [scenarios, setScenarios] = useState<Scenario[]>([])
-  const [selectedScenario, setSelectedScenario] = useState('')
-  const [accountCode, setAccountCode] = useState('')
+  const [scenarioIndex, setScenarioIndex] = useState(0)
   const [amount, setAmount] = useState('')
-  const [frontImage, setFrontImage] = useState<File | null>(null)
-  const [backImage, setBackImage] = useState<File | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [rejected, setRejected] = useState<RejectedTransfer | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetch(`${API_URL}/scenarios`)
-      .then(r => r.json())
-      .then(data => setScenarios(data))
-      .catch(() => {})
-  }, [])
+  const selectedScenario = SCENARIOS[scenarioIndex]
 
-  const handleScenarioChange = (name: string) => {
-    setSelectedScenario(name)
-    const scenario = scenarios.find(s => s.name === name)
-    if (scenario) {
-      setAccountCode(scenario.trigger_account)
-    }
+  function resetForm() {
+    setRejected(null)
+    setSubmitError(null)
+    setAmount('')
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setError('')
-    setSubmitting(true)
+    setLoading(true)
+    setRejected(null)
+    setSubmitError(null)
 
     try {
-      const idempotencyKey = `deposit-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const transfer = await apiFetch<{
+        id: string
+        state: string
+        error_code?: string
+        user_msg?: string
+        duplicate_original_tx_id?: string
+      }>('/deposits', {
+        method: 'POST',
+        headers: {
+          'X-Scenario': selectedScenario.scenarioName,
+        },
+        body: JSON.stringify({
+          account_id: selectedScenario.accountId,
+          amount: parseFloat(amount),
+          front_image: PLACEHOLDER_IMAGE,
+          back_image: PLACEHOLDER_IMAGE,
+        }),
+      })
 
-      let res: Response
-      if (frontImage || backImage) {
-        const formData = new FormData()
-        formData.append('account_code', accountCode)
-        formData.append('amount', amount)
-        if (frontImage) formData.append('front_image', frontImage)
-        if (backImage) formData.append('back_image', backImage)
-        res = await fetch(`${API_URL}/deposits`, {
-          method: 'POST',
-          headers: { 'Idempotency-Key': idempotencyKey },
-          body: formData,
+      if (transfer.state === 'Rejected') {
+        setRejected({
+          id: transfer.id,
+          error_code: transfer.error_code ?? 'UNKNOWN',
+          user_msg: transfer.user_msg,
+          duplicate_original_tx_id: transfer.duplicate_original_tx_id,
         })
       } else {
-        res = await fetch(`${API_URL}/deposits`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Idempotency-Key': idempotencyKey,
-          },
-          body: JSON.stringify({ account_code: accountCode, amount: parseFloat(amount) }),
-        })
+        navigate(`/status/${transfer.id}`)
       }
-
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || 'Deposit failed')
-        return
-      }
-      navigate(`/status/${data.id}`)
     } catch (err) {
-      setError('Network error. Please try again.')
+      setSubmitError(err instanceof Error ? err.message : 'Submission failed. Please try again.')
     } finally {
-      setSubmitting(false)
+      setLoading(false)
     }
   }
 
@@ -83,154 +110,105 @@ export default function DepositPage() {
     <div style={{ padding: '2rem', maxWidth: '480px', margin: '0 auto' }}>
       <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>Deposit Check</h1>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {/* Scenario Selector */}
-        <div>
-          <label htmlFor="scenario" style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
-            Scenario
-          </label>
-          <select
-            id="scenario"
-            value={selectedScenario}
-            onChange={e => handleScenarioChange(e.target.value)}
+      {rejected ? (
+        <>
+          <DepositError
+            errorCode={rejected.error_code}
+            userMsg={rejected.user_msg}
+            duplicateRef={rejected.duplicate_original_tx_id}
+            onRetry={resetForm}
+          />
+          {/* For non-retryable errors show a plain back link */}
+          {!['VSS_IQA_BLUR', 'VSS_IQA_GLARE'].includes(rejected.error_code) && (
+            <button
+              onClick={resetForm}
+              style={{
+                marginTop: '1rem',
+                padding: '0.45rem 1.1rem',
+                background: 'transparent',
+                color: '#1a1a2e',
+                border: '1px solid #1a1a2e',
+                borderRadius: '6px',
+                cursor: 'pointer',
+              }}
+            >
+              Start New Deposit
+            </button>
+          )}
+        </>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label htmlFor="scenario" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>
+              Demo Scenario
+            </label>
+            <select
+              id="scenario"
+              value={scenarioIndex}
+              onChange={(e) => setScenarioIndex(Number(e.target.value))}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                borderRadius: '6px',
+                border: '1px solid #ccc',
+                fontSize: '0.95rem',
+              }}
+            >
+              {SCENARIOS.map((s, i) => (
+                <option key={s.scenarioName} value={i}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label htmlFor="amount" style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>
+              Amount (USD)
+            </label>
+            <input
+              id="amount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              required
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="e.g. 250.00"
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                borderRadius: '6px',
+                border: '1px solid #ccc',
+                fontSize: '0.95rem',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          {submitError && (
+            <p style={{ color: '#b02a37', marginBottom: '1rem', fontSize: '0.9rem' }}>{submitError}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
             style={{
               width: '100%',
-              padding: '0.75rem',
+              padding: '0.65rem',
+              background: loading ? '#6c757d' : '#1a1a2e',
+              color: '#fff',
+              border: 'none',
               borderRadius: '6px',
-              border: '1px solid #ccc',
               fontSize: '1rem',
-              minHeight: '44px',
+              fontWeight: 600,
+              cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
-            <option value="">Select a scenario...</option>
-            {scenarios.map(s => (
-              <option key={s.name} value={s.name}>
-                {s.description || s.name} ({s.trigger_account})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Account Code */}
-        <div>
-          <label htmlFor="account_code" style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
-            Account Code
-          </label>
-          <input
-            id="account_code"
-            type="text"
-            value={accountCode}
-            onChange={e => setAccountCode(e.target.value)}
-            placeholder="e.g. ALPHA-001"
-            required
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              borderRadius: '6px',
-              border: '1px solid #ccc',
-              fontSize: '1rem',
-              minHeight: '44px',
-              boxSizing: 'border-box',
-            }}
-          />
-        </div>
-
-        {/* Amount */}
-        <div>
-          <label htmlFor="amount" style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
-            Amount ($)
-          </label>
-          <input
-            id="amount"
-            type="number"
-            step="0.01"
-            min="0.01"
-            value={amount}
-            onChange={e => setAmount(e.target.value)}
-            placeholder="500.00"
-            required
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              borderRadius: '6px',
-              border: '1px solid #ccc',
-              fontSize: '1rem',
-              minHeight: '44px',
-              boxSizing: 'border-box',
-            }}
-          />
-        </div>
-
-        {/* Front Image */}
-        <div>
-          <label htmlFor="front_image" style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
-            Front of Check
-          </label>
-          <input
-            id="front_image"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={e => setFrontImage(e.target.files?.[0] || null)}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              minHeight: '44px',
-              fontSize: '1rem',
-            }}
-          />
-        </div>
-
-        {/* Back Image */}
-        <div>
-          <label htmlFor="back_image" style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
-            Back of Check
-          </label>
-          <input
-            id="back_image"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={e => setBackImage(e.target.files?.[0] || null)}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              minHeight: '44px',
-              fontSize: '1rem',
-            }}
-          />
-        </div>
-
-        {error && (
-          <div style={{
-            padding: '0.75rem',
-            background: '#ffebee',
-            color: '#c62828',
-            borderRadius: '6px',
-            fontSize: '0.9rem',
-          }}>
-            {error}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={submitting || !accountCode || !amount}
-          style={{
-            padding: '0.75rem',
-            background: submitting ? '#999' : '#1976d2',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '6px',
-            fontSize: '1rem',
-            fontWeight: 'bold',
-            cursor: submitting ? 'not-allowed' : 'pointer',
-            minHeight: '44px',
-          }}
-        >
-          {submitting ? 'Submitting...' : 'Submit Deposit'}
-        </button>
-      </form>
+            {loading ? 'Submitting…' : 'Submit Deposit'}
+          </button>
+        </form>
+      )}
     </div>
   )
 }
