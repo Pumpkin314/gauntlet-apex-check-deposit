@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -18,12 +20,15 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
 
 	mux.HandleFunc("POST /settlement/submit", handleSubmit)
+
+	// POST /settlement/return — trigger a return notification back to the main API.
 	mux.HandleFunc("POST /settlement/return", handleReturn)
 
 	addr := fmt.Sprintf(":%s", port)
@@ -79,15 +84,17 @@ type returnRequest struct {
 	ReturnReasonCode string `json:"return_reason_code"`
 }
 
+// handleReturn accepts a return trigger from the admin UI or test scripts and
+// forwards it to the main API as a signed settlement bank webhook callback.
 func handleReturn(w http.ResponseWriter, r *http.Request) {
 	var req returnRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
 		return
 	}
 
 	if req.TransferID == "" || req.ReturnReasonCode == "" {
-		http.Error(w, "transfer_id and return_reason_code are required", http.StatusBadRequest)
+		http.Error(w, `{"error":"transfer_id and return_reason_code are required"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -96,26 +103,38 @@ func handleReturn(w http.ResponseWriter, r *http.Request) {
 		apiURL = "http://localhost:8080"
 	}
 	token := os.Getenv("SETTLEMENT_BANK_TOKEN")
-
-	// Call back to the main API's /returns endpoint
-	payload := fmt.Sprintf(`{"transfer_id":"%s","reason_code":"%s"}`, req.TransferID, req.ReturnReasonCode)
-
-	httpReq, _ := http.NewRequest("POST", apiURL+"/returns", nil)
-	httpReq.Header.Set("Content-Type", "application/json")
-	if token != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+token)
+	if token == "" {
+		http.Error(w, `{"error":"SETTLEMENT_BANK_TOKEN not configured"}`, http.StatusInternalServerError)
+		return
 	}
-	httpReq.Body = http.NoBody
 
-	// For MVP, just acknowledge the return request
-	log.Printf("Return requested: transfer=%s reason=%s (webhook callback to %s/returns)",
-		req.TransferID, req.ReturnReasonCode, apiURL)
-	_ = payload // Will be used when /returns endpoint is implemented in TB5
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":      "RETURN_INITIATED",
-		"transfer_id": req.TransferID,
-		"reason_code": req.ReturnReasonCode,
+	// Forward to the main API's POST /returns endpoint with bearer token.
+	payload, _ := json.Marshal(map[string]string{
+		"transfer_id":        req.TransferID,
+		"return_reason_code": req.ReturnReasonCode,
 	})
+
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL+"/returns", bytes.NewReader(payload))
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"build request: %s"}`, err), http.StatusInternalServerError)
+		return
+	}
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(apiReq)
+	if err != nil {
+		log.Printf("settlement-stub: POST /returns callback failed: %v", err)
+		http.Error(w, fmt.Sprintf(`{"error":"callback failed: %s"}`, err), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	log.Printf("settlement-stub: return processed transfer=%s reason=%s status=%d",
+		req.TransferID, req.ReturnReasonCode, resp.StatusCode)
+
+	respBody, _ := io.ReadAll(resp.Body)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	w.Write(respBody) //nolint:errcheck
 }
