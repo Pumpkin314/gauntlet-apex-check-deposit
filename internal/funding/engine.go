@@ -3,13 +3,16 @@ package funding
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 // Engine implements FundingServiceClient. It is stateless — no DB writes occur here.
 type Engine struct {
-	rules        []Rule
-	ctRule       ContributionTypeRule
-	omnibusRule  OmnibusResolutionRule
+	rules       []Rule
+	ctRule      ContributionTypeRule
+	omnibusRule OmnibusResolutionRule
+	dupChecker  DuplicateChecker // nil = FS duplicate detection disabled
+	dupWindow   time.Duration
 }
 
 // NewEngine constructs a funding Engine. resolver provides omnibus account lookup;
@@ -19,18 +22,41 @@ func NewEngine(resolver OmnibusResolver) *Engine {
 	omnRule := OmnibusResolutionRule{Resolver: resolver}
 	return &Engine{
 		rules: []Rule{
+			VSSMICRRule{},
+			VSSAmountMismatchRule{},
 			AccountEligibilityRule{},
 			DepositLimitRule{},
 			ctRule,
 		},
 		ctRule:      ctRule,
 		omnibusRule: omnRule,
+		dupWindow:   5 * time.Minute,
 	}
 }
 
+// WithDuplicateChecker enables FS-level duplicate detection using checker with the
+// given time window. Returns e for method chaining.
+func (e *Engine) WithDuplicateChecker(checker DuplicateChecker, window time.Duration) *Engine {
+	e.dupChecker = checker
+	e.dupWindow = window
+	return e
+}
+
 // Evaluate runs all rules in order and returns a FundingDecision.
-// The first rule that rejects short-circuits evaluation.
+// Duplicate detection runs first; then VSS rules; then eligibility and limit rules.
+// The first rule that rejects or flags short-circuits evaluation.
 func (e *Engine) Evaluate(ctx context.Context, req *EvaluateRequest) (*FundingDecision, error) {
+	// FS-level duplicate detection — runs before all other rules.
+	if e.dupChecker != nil {
+		dup, err := e.dupChecker.HasRecentTransfer(ctx, req.AccountID, req.Amount, e.dupWindow)
+		if err != nil {
+			return nil, fmt.Errorf("funding: duplicate check for transfer %s: %w", req.TransferID, err)
+		}
+		if dup {
+			return &FundingDecision{Decision: DecisionReject, ReasonCode: "FS_DUPLICATE_DEPOSIT"}, nil
+		}
+	}
+
 	for _, rule := range e.rules {
 		if d := rule.Evaluate(ctx, req); d != nil {
 			return d, nil
