@@ -49,7 +49,7 @@ const PLACEHOLDER_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAA
 
 export default function DepositPage() {
   const navigate = useNavigate()
-  const [scenarioName, setScenarioName] = useState(SCENARIOS[0].scenarioName)
+  const [scenarioName, setScenarioName] = useState<string>(SCENARIOS[0].scenarioName)
   const [amount, setAmount] = useState('')
   const [loading, setLoading] = useState(false)
   const [rejected, setRejected] = useState<RejectedTransfer | null>(null)

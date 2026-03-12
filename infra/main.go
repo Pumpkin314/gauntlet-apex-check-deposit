@@ -58,6 +58,10 @@ func run(ctx *pulumi.Context) error {
 	if settlementTag == "" {
 		settlementTag = "latest"
 	}
+	webTag := cfg.Get("webTag")
+	if webTag == "" {
+		webTag = "latest"
+	}
 
 	registryBase := fmt.Sprintf("%s-docker.pkg.dev/%s/apex-check-deposit", region, project)
 
@@ -208,16 +212,8 @@ func run(ctx *pulumi.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = cloudrunv2.NewServiceIamMember(ctx, "vss-public", &cloudrunv2.ServiceIamMemberArgs{
-		Project:  pulumi.String(project),
-		Location: pulumi.String(region),
-		Name:     vssService.Name,
-		Role:     pulumi.String("roles/run.invoker"),
-		Member:   pulumi.String("allUsers"),
-	})
-	if err != nil {
-		return err
-	}
+	// NOTE: IAM bindings removed — org policy blocks allUsers/allAuthenticatedUsers/domain.
+	// Use gcloud to grant access manually after deploy.
 
 	// ── Cloud Run: API ───────────────────────────────────────────────────────
 	// API depends on VSS URI and Cloud SQL connection name
@@ -266,6 +262,15 @@ func run(ctx *pulumi.Context) error {
 							MountPath: pulumi.String("/cloudsql"),
 						},
 					},
+					StartupProbe: &cloudrunv2.ServiceTemplateContainerStartupProbeArgs{
+						TcpSocket: &cloudrunv2.ServiceTemplateContainerStartupProbeTcpSocketArgs{
+							Port: pulumi.Int(8080),
+						},
+						InitialDelaySeconds: pulumi.Int(5),
+						PeriodSeconds:       pulumi.Int(10),
+						FailureThreshold:    pulumi.Int(20),
+						TimeoutSeconds:      pulumi.Int(5),
+					},
 				},
 			},
 			Volumes: cloudrunv2.ServiceTemplateVolumeArray{
@@ -281,17 +286,6 @@ func run(ctx *pulumi.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = cloudrunv2.NewServiceIamMember(ctx, "api-public", &cloudrunv2.ServiceIamMemberArgs{
-		Project:  pulumi.String(project),
-		Location: pulumi.String(region),
-		Name:     apiService.Name,
-		Role:     pulumi.String("roles/run.invoker"),
-		Member:   pulumi.String("allUsers"),
-	})
-	if err != nil {
-		return err
-	}
-
 	// ── Cloud Run: Settlement stub ───────────────────────────────────────────
 	// Settlement depends on API URI for return webhooks
 	settlementService, err := cloudrunv2.NewService(ctx, "settlement", &cloudrunv2.ServiceArgs{
@@ -332,12 +326,34 @@ func run(ctx *pulumi.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = cloudrunv2.NewServiceIamMember(ctx, "settlement-public", &cloudrunv2.ServiceIamMemberArgs{
+	// ── Cloud Run: Web frontend ────────────────────────────────────────────
+	// Frontend depends on API URI (injected at container startup via env var)
+	webService, err := cloudrunv2.NewService(ctx, "web", &cloudrunv2.ServiceArgs{
 		Project:  pulumi.String(project),
 		Location: pulumi.String(region),
-		Name:     settlementService.Name,
-		Role:     pulumi.String("roles/run.invoker"),
-		Member:   pulumi.String("allUsers"),
+		Ingress:  pulumi.String("INGRESS_TRAFFIC_ALL"),
+		Template: &cloudrunv2.ServiceTemplateArgs{
+			Scaling: &cloudrunv2.ServiceTemplateScalingArgs{
+				MinInstanceCount: pulumi.Int(minInstances),
+				MaxInstanceCount: pulumi.Int(5),
+			},
+			Containers: cloudrunv2.ServiceTemplateContainerArray{
+				&cloudrunv2.ServiceTemplateContainerArgs{
+					Image: pulumi.String(fmt.Sprintf("%s/web:%s", registryBase, webTag)),
+					Ports: cloudrunv2.ServiceTemplateContainerPortArray{
+						&cloudrunv2.ServiceTemplateContainerPortArgs{
+							ContainerPort: pulumi.Int(8080),
+						},
+					},
+					Envs: cloudrunv2.ServiceTemplateContainerEnvArray{
+						&cloudrunv2.ServiceTemplateContainerEnvArgs{
+							Name:  pulumi.String("VITE_API_URL"),
+							Value: apiService.Uri,
+						},
+					},
+				},
+			},
+		},
 	})
 	if err != nil {
 		return err
@@ -347,6 +363,7 @@ func run(ctx *pulumi.Context) error {
 	ctx.Export("apiUrl", apiService.Uri)
 	ctx.Export("vssUrl", vssService.Uri)
 	ctx.Export("settlementUrl", settlementService.Uri)
+	ctx.Export("webUrl", webService.Uri)
 	ctx.Export("dbConnectionName", sqlInstance.ConnectionName)
 
 	return nil

@@ -24,9 +24,11 @@ func main() {
 
 	h, err := newHandler(scenariosPath)
 	if err != nil {
-		log.Fatalf("vendor-stub: failed to load scenarios from %s: %v", scenariosPath, err)
+		log.Printf("vendor-stub: WARNING: failed to load scenarios from %s: %v (using defaults)", scenariosPath, err)
+		h = &handler{byCode: map[string]*scenario{}, byName: map[string]*scenario{}}
+	} else {
+		log.Printf("vendor-stub: loaded %d scenarios from %s", len(h.byName), scenariosPath)
 	}
-	log.Printf("vendor-stub: loaded %d scenarios from %s", len(h.byName), scenariosPath)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {

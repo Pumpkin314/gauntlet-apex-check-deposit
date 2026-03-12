@@ -42,8 +42,16 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	defer db.Close()
-	if err := db.Ping(); err != nil {
-		log.Fatalf("failed to ping database: %v", err)
+	// Retry db.Ping — Cloud SQL proxy socket may take a few seconds
+	for i := 0; i < 30; i++ {
+		if err := db.Ping(); err == nil {
+			break
+		} else if i == 29 {
+			log.Fatalf("failed to ping database after 30 retries: %v", err)
+		} else {
+			logger.Warn("waiting for database...", "attempt", i+1, "error", err)
+			time.Sleep(2 * time.Second)
+		}
 	}
 
 	// Create stores
