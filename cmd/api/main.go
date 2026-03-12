@@ -17,6 +17,7 @@ import (
 	"github.com/apex-checkout/check-deposit/internal/funding"
 	"github.com/apex-checkout/check-deposit/internal/ledger"
 	"github.com/apex-checkout/check-deposit/internal/orchestrator"
+	"github.com/apex-checkout/check-deposit/internal/settlement"
 	"github.com/apex-checkout/check-deposit/internal/store"
 	"github.com/apex-checkout/check-deposit/internal/vendorclient"
 )
@@ -45,6 +46,7 @@ func main() {
 	accountStore := store.NewAccountStore(db)
 	correspondentStore := store.NewCorrespondentStore(db)
 	ledgerStore := store.NewLedgerStore(db)
+	settlementStore := store.NewSettlementStore(db)
 
 	// Create services
 	ledgerService := ledger.New(ledgerStore, logger)
@@ -100,6 +102,28 @@ func main() {
 		Log:              logger,
 	}
 
+	// Settlement engine
+	settlementBankURL := os.Getenv("SETTLEMENT_BANK_URL")
+	if settlementBankURL == "" {
+		settlementBankURL = "http://localhost:8082"
+	}
+
+	settlementEngine := &settlement.Engine{
+		Transfers: settlementStore,
+		Batches:   settlementStore,
+		Updater:   transferStore,
+		Events:    transferStore,
+		Notifier:  transferStore,
+		Log:       logger,
+	}
+
+	settlementHandler := &handlers.SettlementHandler{
+		Engine:        settlementEngine,
+		Batches:       settlementStore,
+		SettlementURL: settlementBankURL,
+		Log:           logger,
+	}
+
 	// Scenarios handler
 	scenariosPath := os.Getenv("SCENARIOS_PATH")
 	if scenariosPath == "" {
@@ -137,6 +161,11 @@ func main() {
 	// Operator (auth-gated)
 	mux.HandleFunc("GET /operator/queue", middleware.Auth(operatorHandler.GetQueue))
 	mux.HandleFunc("POST /operator/actions", middleware.Auth(operatorHandler.PostAction))
+
+	// Settlement
+	mux.HandleFunc("POST /settlement/trigger", settlementHandler.Trigger)
+	mux.HandleFunc("GET /settlement/status", settlementHandler.Status)
+	mux.HandleFunc("GET /settlement/batches", settlementHandler.ListBatches)
 
 	// Scenarios
 	if scenariosHandler != nil {
