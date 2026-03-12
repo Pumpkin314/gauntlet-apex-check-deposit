@@ -12,6 +12,7 @@ COPY --from=builder /go/bin/goose /usr/local/bin/goose
 COPY --from=builder /api /api
 COPY db/migrations /migrations
 COPY db/seed.sql /seed.sql
+COPY test-scenarios /scenarios
 EXPOSE 8080
 COPY cmd/api/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

@@ -28,6 +28,7 @@ services:
       SETTLEMENT_BANK_URL: http://settlement:8082
       JWT_SECRET: dev-secret-change-in-production
       SETTLEMENT_BANK_TOKEN: dev-settlement-token
+      SCENARIOS_PATH: /scenarios/scenarios.yaml
     depends_on:
       postgres:
         condition: service_healthy
