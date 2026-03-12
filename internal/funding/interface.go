@@ -2,6 +2,7 @@ package funding
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -29,18 +30,29 @@ type RulesConfig struct {
 	Fees                   FeeConfig `json:"fees"`
 }
 
+// VSSResult holds the Vendor Service's analysis of the check image.
+// Set by the orchestrator after calling VendorServiceClient.Validate.
+// Nil when VSS was not consulted (e.g. in pre-VSS unit tests); rules that
+// depend on VSS data are no-ops when VSSResult is nil.
+type VSSResult struct {
+	MICRReadable bool    // false when VSS returned micr_data=null
+	OCRAmount    float64 // the OCR-read dollar amount from VSS
+}
+
 // EvaluateRequest is the input to the Funding Service. All data is pre-fetched
 // by the caller (orchestrator); the Funding Service is stateless and does not
 // query the DB directly (except omnibus resolution via OmnibusResolver).
 type EvaluateRequest struct {
-	TransferID      uuid.UUID
-	AccountID       uuid.UUID
-	CorrespondentID uuid.UUID
-	Amount          float64 // in dollars, e.g. 500.00
-	AccountType     string  // 'INDIVIDUAL', 'IRA', 'OMNIBUS', 'FEE'
-	AccountStatus   string  // 'ACTIVE', 'SUSPENDED', 'COLLECTIONS'
-	ContributionType string // may be empty; defaulted by ContributionTypeRule
-	RulesConfig     RulesConfig
+	TransferID       uuid.UUID
+	AccountID        uuid.UUID
+	CorrespondentID  uuid.UUID
+	Amount           float64 // in dollars, e.g. 500.00
+	AccountType      string  // 'INDIVIDUAL', 'IRA', 'OMNIBUS', 'FEE'
+	AccountStatus    string  // 'ACTIVE', 'SUSPENDED', 'COLLECTIONS'
+	ContributionType string  // may be empty; defaulted by ContributionTypeRule
+	RulesConfig      RulesConfig
+	// VSSResult is nil when VSS was not consulted. VSS-dependent rules skip evaluation.
+	VSSResult *VSSResult
 }
 
 // FundingDecision is the output of a funding evaluation.
@@ -60,4 +72,10 @@ type FundingServiceClient interface {
 // Defined here so funding never imports the store package.
 type OmnibusResolver interface {
 	GetOmnibusForCorrespondent(ctx context.Context, correspondentID uuid.UUID) (uuid.UUID, error)
+}
+
+// DuplicateChecker is the store interface for FS-level duplicate detection.
+// Defined here so funding never imports the store package.
+type DuplicateChecker interface {
+	HasRecentTransfer(ctx context.Context, accountID uuid.UUID, amount float64, window time.Duration) (bool, error)
 }

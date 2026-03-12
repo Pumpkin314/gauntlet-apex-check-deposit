@@ -70,3 +70,36 @@ func (OmnibusResolutionRule) Name() string { return "OmnibusResolutionRule" }
 func (OmnibusResolutionRule) Evaluate(_ context.Context, _ *EvaluateRequest) *FundingDecision {
 	return nil
 }
+
+// VSSMICRRule flags deposits where the Vendor Service could not read the MICR line
+// (micr_data=null in the VSS response). No-op when VSSResult is nil.
+type VSSMICRRule struct{}
+
+func (VSSMICRRule) Name() string { return "VSSMICRRule" }
+
+func (VSSMICRRule) Evaluate(_ context.Context, req *EvaluateRequest) *FundingDecision {
+	if req.VSSResult == nil {
+		return nil
+	}
+	if !req.VSSResult.MICRReadable {
+		return &FundingDecision{Decision: DecisionFlagForReview, ReasonCode: "VSS_MICR_READ_FAIL"}
+	}
+	return nil
+}
+
+// VSSAmountMismatchRule flags deposits where the OCR-read amount differs from the
+// submitted amount. No-op when VSSResult is nil or MICR was unreadable (VSSMICRRule
+// fires first in that case).
+type VSSAmountMismatchRule struct{}
+
+func (VSSAmountMismatchRule) Name() string { return "VSSAmountMismatchRule" }
+
+func (VSSAmountMismatchRule) Evaluate(_ context.Context, req *EvaluateRequest) *FundingDecision {
+	if req.VSSResult == nil || !req.VSSResult.MICRReadable {
+		return nil
+	}
+	if req.VSSResult.OCRAmount != req.Amount {
+		return &FundingDecision{Decision: DecisionFlagForReview, ReasonCode: "VSS_AMOUNT_MISMATCH"}
+	}
+	return nil
+}
