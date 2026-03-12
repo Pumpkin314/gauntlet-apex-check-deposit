@@ -7,7 +7,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /api ./cmd/api
 
 FROM alpine:3.19
-RUN apk add --no-cache curl postgresql-client
+RUN apk add --no-cache curl postgresql-client tzdata
 COPY --from=builder /go/bin/goose /usr/local/bin/goose
 COPY --from=builder /api /api
 COPY db/migrations /migrations
