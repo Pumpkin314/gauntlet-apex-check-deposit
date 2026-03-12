@@ -60,7 +60,7 @@ scenarios:
         routing: "021000021"
         account: "123456789"
         check_number: "1005"
-      ocr_amount_override: 499.00
+      ocr_amount_override: 250.00
       confidence_score: 0.92
       duplicate_flag: false
       duplicate_original_tx_id: null

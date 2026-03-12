@@ -299,6 +299,37 @@ func TestValidate_MICRFailure(t *testing.T) {
 	}
 }
 
+func TestValidate_AmountMismatch(t *testing.T) {
+	h := mustNewHandler(t)
+
+	w := postValidate(h, `{"account_id":"a0000000-0000-0000-0000-000000000005","amount":500.00}`, nil)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp validateResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.IQAStatus != "pass" {
+		t.Errorf("iqa_status: want %q, got %q", "pass", resp.IQAStatus)
+	}
+	if resp.OCRAmount != 250.00 {
+		t.Errorf("ocr_amount: want 250.00, got %f", resp.OCRAmount)
+	}
+	if resp.MICRData == nil {
+		t.Fatal("micr_data: want populated, got nil")
+	}
+	if resp.MICRData.Routing == "" {
+		t.Error("micr_data.routing: want non-empty")
+	}
+	if resp.ScenarioUsed != "amount_mismatch" {
+		t.Errorf("scenario_used: want %q, got %q", "amount_mismatch", resp.ScenarioUsed)
+	}
+}
+
 func TestScenariosLoadedAtStartup(t *testing.T) {
 	// Verify scenarios are pre-loaded (byName and byCode populated) rather than read per request.
 	h := mustNewHandler(t)
