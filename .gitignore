@@ -13,6 +13,9 @@ node_modules/
 # Reports
 reports/
 
+# Test results
+test-results/
+
 # OS
 .DS_Store
 
