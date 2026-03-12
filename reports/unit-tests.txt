@@ -1,0 +1,374 @@
+?   	github.com/apex-checkout/check-deposit/cmd/api	[no test files]
+?   	github.com/apex-checkout/check-deposit/cmd/api/handlers	[no test files]
+=== RUN   TestAuth_MissingHeader_Returns401
+--- PASS: TestAuth_MissingHeader_Returns401 (0.00s)
+=== RUN   TestAuth_InvalidToken_Returns401
+--- PASS: TestAuth_InvalidToken_Returns401 (0.00s)
+=== RUN   TestAuth_BadFormat_Returns401
+--- PASS: TestAuth_BadFormat_Returns401 (0.00s)
+=== RUN   TestAuth_OperatorAlpha_SetsContext
+--- PASS: TestAuth_OperatorAlpha_SetsContext (0.00s)
+=== RUN   TestAuth_ApexAdmin_NoCorrespondentID
+--- PASS: TestAuth_ApexAdmin_NoCorrespondentID (0.00s)
+PASS
+ok  	github.com/apex-checkout/check-deposit/cmd/api/middleware	(cached)
+?   	github.com/apex-checkout/check-deposit/cmd/settlement-stub	[no test files]
+=== RUN   TestValidate_CleanPass
+--- PASS: TestValidate_CleanPass (0.00s)
+=== RUN   TestValidate_UnknownAccount_Returns404
+--- PASS: TestValidate_UnknownAccount_Returns404 (0.00s)
+=== RUN   TestValidate_XScenarioOverride
+--- PASS: TestValidate_XScenarioOverride (0.00s)
+=== RUN   TestValidate_XScenarioUnknown_Returns404
+--- PASS: TestValidate_XScenarioUnknown_Returns404 (0.00s)
+=== RUN   TestValidate_OCRAmount_EchoesSubmitted
+--- PASS: TestValidate_OCRAmount_EchoesSubmitted (0.00s)
+=== RUN   TestValidate_IQABlur
+--- PASS: TestValidate_IQABlur (0.00s)
+=== RUN   TestValidate_IQAGlare
+--- PASS: TestValidate_IQAGlare (0.00s)
+=== RUN   TestValidate_DuplicateDetected
+--- PASS: TestValidate_DuplicateDetected (0.00s)
+=== RUN   TestValidate_IRACleanPass
+--- PASS: TestValidate_IRACleanPass (0.00s)
+=== RUN   TestValidate_MICRFailure
+--- PASS: TestValidate_MICRFailure (0.00s)
+=== RUN   TestValidate_AmountMismatch
+--- PASS: TestValidate_AmountMismatch (0.00s)
+=== RUN   TestScenariosLoadedAtStartup
+--- PASS: TestScenariosLoadedAtStartup (0.00s)
+PASS
+ok  	github.com/apex-checkout/check-deposit/cmd/vendor-stub	(cached)
+?   	github.com/apex-checkout/check-deposit/internal/events	[no test files]
+=== RUN   TestApprove_HappyPath
+--- PASS: TestApprove_HappyPath (0.00s)
+=== RUN   TestApprove_ExactLimit
+--- PASS: TestApprove_ExactLimit (0.00s)
+=== RUN   TestReject_OverLimit
+--- PASS: TestReject_OverLimit (0.00s)
+=== RUN   TestReject_IneligibleIRA
+--- PASS: TestReject_IneligibleIRA (0.00s)
+=== RUN   TestApprove_IRA_Alpha
+--- PASS: TestApprove_IRA_Alpha (0.00s)
+=== RUN   TestOmnibusResolution_Alpha
+--- PASS: TestOmnibusResolution_Alpha (0.00s)
+=== RUN   TestOmnibusResolution_Beta
+--- PASS: TestOmnibusResolution_Beta (0.00s)
+=== RUN   TestFlagForReview_MICR
+--- PASS: TestFlagForReview_MICR (0.00s)
+=== RUN   TestFlagForReview_AmountMismatch
+--- PASS: TestFlagForReview_AmountMismatch (0.00s)
+=== RUN   TestReject_FSDuplicate
+--- PASS: TestReject_FSDuplicate (0.00s)
+=== RUN   TestVSSRulesSkip_WhenNoVSSResult
+--- PASS: TestVSSRulesSkip_WhenNoVSSResult (0.00s)
+=== RUN   TestRules_IndependentlyTestable
+=== RUN   TestRules_IndependentlyTestable/AccountEligibilityRule_InactiveAccount
+=== RUN   TestRules_IndependentlyTestable/AccountEligibilityRule_IneligibleType
+=== RUN   TestRules_IndependentlyTestable/DepositLimitRule_AtLimit
+=== RUN   TestRules_IndependentlyTestable/DepositLimitRule_OverLimit
+=== RUN   TestRules_IndependentlyTestable/ContributionTypeRule_IRA_Default
+=== RUN   TestRules_IndependentlyTestable/ContributionTypeRule_NonIRA
+=== RUN   TestRules_IndependentlyTestable/VSSMICRRule_NoVSSResult_Skips
+=== RUN   TestRules_IndependentlyTestable/VSSMICRRule_MICRUnreadable_Flags
+=== RUN   TestRules_IndependentlyTestable/VSSMICRRule_MICRReadable_Passes
+=== RUN   TestRules_IndependentlyTestable/VSSAmountMismatchRule_NoVSSResult_Skips
+=== RUN   TestRules_IndependentlyTestable/VSSAmountMismatchRule_AmountMismatch_Flags
+=== RUN   TestRules_IndependentlyTestable/VSSAmountMismatchRule_AmountMatches_Passes
+--- PASS: TestRules_IndependentlyTestable (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/AccountEligibilityRule_InactiveAccount (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/AccountEligibilityRule_IneligibleType (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/DepositLimitRule_AtLimit (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/DepositLimitRule_OverLimit (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/ContributionTypeRule_IRA_Default (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/ContributionTypeRule_NonIRA (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/VSSMICRRule_NoVSSResult_Skips (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/VSSMICRRule_MICRUnreadable_Flags (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/VSSMICRRule_MICRReadable_Passes (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/VSSAmountMismatchRule_NoVSSResult_Skips (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/VSSAmountMismatchRule_AmountMismatch_Flags (0.00s)
+    --- PASS: TestRules_IndependentlyTestable/VSSAmountMismatchRule_AmountMatches_Passes (0.00s)
+PASS
+ok  	github.com/apex-checkout/check-deposit/internal/funding	(cached)
+=== RUN   TestPostDoubleEntry_CreatesTwoRows
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=e9302cf9-2975-4604-aa9f-923040a54a54 movement_id=6151309b-470c-4954-a514-e19f07efdbf2 amount=500.00 memo=FREE
+--- PASS: TestPostDoubleEntry_CreatesTwoRows (0.00s)
+=== RUN   TestPostDoubleEntry_OneDebitOneCreditSameMovementID
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=65c7d1b1-9d92-450b-b772-19fbeb4054f8 movement_id=14be632c-36b6-458c-be09-ae38d097c3b5 amount=500.00 memo=FREE
+--- PASS: TestPostDoubleEntry_OneDebitOneCreditSameMovementID (0.00s)
+=== RUN   TestGetBalance_AfterCredit
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=441cfabc-a742-4e76-bd90-ea1124e4f4cf movement_id=7422fa84-e8f2-47ea-9ad0-70b69081989b amount=500.00 memo=FREE
+--- PASS: TestGetBalance_AfterCredit (0.00s)
+=== RUN   TestGetBalance_CreditThenDebit_IsZero
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=c29f07eb-aedc-494d-b859-99a23e8167d4 movement_id=9654185b-2093-4c90-8f6a-cbe25f5a48e3 amount=500.00 memo=FREE
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=926442c8-dded-4d7e-a77e-951257d25d86 movement_id=f050e82a-2ee1-4bdc-ae94-59cca1d08c76 amount=500.00 memo=REVERSAL
+--- PASS: TestGetBalance_CreditThenDebit_IsZero (0.00s)
+=== RUN   TestReconcile_AfterMultiplePostings_IsZero
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=a97d5186-a77d-43fd-9471-4007d8b4a6b7 movement_id=96352d95-70e8-4bd7-bf61-e550e3f97469 amount=100.00 memo=FREE
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=229f658a-4464-4073-a44c-355cceb9c4d7 movement_id=7173a8f2-5aa2-4840-973e-2e0f07fe9511 amount=100.00 memo=REVERSAL
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=a81e022b-6f3f-4a77-9e08-2819979cb722 movement_id=36976327-b685-4999-8c82-8c56210dad49 amount=100.00 memo=RETURNED_CHECK_FEE
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=3707b325-02ee-4fcb-bd9c-077dd85b75b0 movement_id=35a0a8f4-2db8-49fd-91e4-d77d2b736253 amount=100.00 memo=FREE
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=50905584-bb44-4902-b5fe-b6d72cf6ab07 movement_id=ba6b5690-43e4-4f20-b0a7-5ec5e154f942 amount=100.00 memo=REVERSAL
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=69b86f98-e715-4eeb-95d5-396a42ba94ad movement_id=85e50dbc-e35e-4755-8050-8305976b9dff amount=100.00 memo=RETURNED_CHECK_FEE
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=fb444ae5-e2e9-4c93-aafa-3d1a0246a29f movement_id=707ee388-3db6-405f-9bc5-e67572efa9b5 amount=100.00 memo=FREE
+time=2026-03-12T03:03:06.633-05:00 level=INFO msg="ledger double entry posted" transfer_id=27d5124f-25ed-4f54-85cd-dfe230d3fe36 movement_id=ec2f29ba-d86e-4169-90de-15fb11e5e074 amount=100.00 memo=REVERSAL
+time=2026-03-12T03:03:06.634-05:00 level=INFO msg="ledger double entry posted" transfer_id=f7436bf9-5059-4fc3-b560-bb0fff764c02 movement_id=22fe4d75-53fa-477a-8dd3-f4c74a3f7339 amount=100.00 memo=RETURNED_CHECK_FEE
+time=2026-03-12T03:03:06.634-05:00 level=INFO msg="ledger double entry posted" transfer_id=36b4b9e9-5df7-4f93-8e34-cb68c8a60721 movement_id=fefb142f-2f8e-41e5-ac0b-9bcabd3d5823 amount=100.00 memo=FREE
+--- PASS: TestReconcile_AfterMultiplePostings_IsZero (0.00s)
+=== RUN   TestReconcile_EmptyLedger
+--- PASS: TestReconcile_EmptyLedger (0.00s)
+=== RUN   TestGetBalance_MultipleMovementsSameAccount
+time=2026-03-12T03:03:06.634-05:00 level=INFO msg="ledger double entry posted" transfer_id=52903e6d-c1f3-45fc-8b79-336514b969a2 movement_id=91d3efe9-d958-4920-b0f5-60dddd9ebf5e amount=200.00 memo=FREE
+time=2026-03-12T03:03:06.634-05:00 level=INFO msg="ledger double entry posted" transfer_id=0a8fb605-060b-454e-9978-721481990c24 movement_id=456a9058-9396-42f7-a5f4-151e9d8ca5ad amount=200.00 memo=FREE
+time=2026-03-12T03:03:06.634-05:00 level=INFO msg="ledger double entry posted" transfer_id=3ce242b4-3b45-407c-8fc8-59deef766368 movement_id=b07950f1-d8b3-4209-ae3d-be2ced5f0ef5 amount=200.00 memo=FREE
+--- PASS: TestGetBalance_MultipleMovementsSameAccount (0.00s)
+=== RUN   TestAtomicity_DBError_NeitherEntryWritten
+--- PASS: TestAtomicity_DBError_NeitherEntryWritten (0.00s)
+=== RUN   TestUniqueConstraint_DuplicateFails
+time=2026-03-12T03:03:06.634-05:00 level=INFO msg="ledger double entry posted" transfer_id=25a09a38-750f-4217-8c96-481c95b98753 movement_id=0d53180e-1761-4b26-9dcb-398f5a94ab58 amount=500.00 memo=FREE
+--- PASS: TestUniqueConstraint_DuplicateFails (0.00s)
+PASS
+ok  	github.com/apex-checkout/check-deposit/internal/ledger	(cached)
+=== RUN   TestRedact
+=== RUN   TestRedact/empty_string
+=== RUN   TestRedact/one_char
+=== RUN   TestRedact/two_chars
+=== RUN   TestRedact/three_chars
+=== RUN   TestRedact/four_chars
+=== RUN   TestRedact/five_chars
+=== RUN   TestRedact/routing_number
+=== RUN   TestRedact/account_number
+=== RUN   TestRedact/short_account
+=== RUN   TestRedact/check_number
+--- PASS: TestRedact (0.00s)
+    --- PASS: TestRedact/empty_string (0.00s)
+    --- PASS: TestRedact/one_char (0.00s)
+    --- PASS: TestRedact/two_chars (0.00s)
+    --- PASS: TestRedact/three_chars (0.00s)
+    --- PASS: TestRedact/four_chars (0.00s)
+    --- PASS: TestRedact/five_chars (0.00s)
+    --- PASS: TestRedact/routing_number (0.00s)
+    --- PASS: TestRedact/account_number (0.00s)
+    --- PASS: TestRedact/short_account (0.00s)
+    --- PASS: TestRedact/check_number (0.00s)
+=== RUN   TestRedact_PreservesLastFour
+--- PASS: TestRedact_PreservesLastFour (0.00s)
+PASS
+ok  	github.com/apex-checkout/check-deposit/internal/logging	(cached)
+=== RUN   TestFlagForReview_SetsReviewReason
+--- PASS: TestFlagForReview_SetsReviewReason (0.00s)
+=== RUN   TestFlagForReview_WritesFlaggedEvent
+--- PASS: TestFlagForReview_WritesFlaggedEvent (0.00s)
+=== RUN   TestFlagForReview_SetterError
+--- PASS: TestFlagForReview_SetterError (0.00s)
+=== RUN   TestFlagForReview_NotifierNil
+--- PASS: TestFlagForReview_NotifierNil (0.00s)
+=== RUN   TestFlow_VSSBlur_RejectsWithErrorCode
+--- PASS: TestFlow_VSSBlur_RejectsWithErrorCode (0.00s)
+=== RUN   TestFlow_VSSGlare_RejectsWithErrorCode
+--- PASS: TestFlow_VSSGlare_RejectsWithErrorCode (0.00s)
+=== RUN   TestFlow_VSSDuplicate_RejectsWithErrorCode
+--- PASS: TestFlow_VSSDuplicate_RejectsWithErrorCode (0.00s)
+=== RUN   TestFlow_Rejected_NoLedgerEntries
+--- PASS: TestFlow_Rejected_NoLedgerEntries (0.00s)
+=== RUN   TestFlow_HappyPath_ReachesFundsPosted
+--- PASS: TestFlow_HappyPath_ReachesFundsPosted (0.00s)
+=== RUN   TestFlow_FSRejection_OverLimit
+--- PASS: TestFlow_FSRejection_OverLimit (0.00s)
+=== RUN   TestDepositError_UserMessages
+=== RUN   TestDepositError_UserMessages/VSS_IQA_BLUR
+=== RUN   TestDepositError_UserMessages/VSS_IQA_GLARE
+=== RUN   TestDepositError_UserMessages/VSS_DUPLICATE_DETECTED
+=== RUN   TestDepositError_UserMessages/FS_OVER_DEPOSIT_LIMIT
+=== RUN   TestDepositError_UserMessages/FS_ACCOUNT_INELIGIBLE
+=== RUN   TestDepositError_UserMessages/VSS_MICR_READ_FAIL
+=== RUN   TestDepositError_UserMessages/SYS_LEDGER_POST_FAIL
+=== RUN   TestDepositError_UserMessages/SYS_INVALID_TRANSITION
+--- PASS: TestDepositError_UserMessages (0.00s)
+    --- PASS: TestDepositError_UserMessages/VSS_IQA_BLUR (0.00s)
+    --- PASS: TestDepositError_UserMessages/VSS_IQA_GLARE (0.00s)
+    --- PASS: TestDepositError_UserMessages/VSS_DUPLICATE_DETECTED (0.00s)
+    --- PASS: TestDepositError_UserMessages/FS_OVER_DEPOSIT_LIMIT (0.00s)
+    --- PASS: TestDepositError_UserMessages/FS_ACCOUNT_INELIGIBLE (0.00s)
+    --- PASS: TestDepositError_UserMessages/VSS_MICR_READ_FAIL (0.00s)
+    --- PASS: TestDepositError_UserMessages/SYS_LEDGER_POST_FAIL (0.00s)
+    --- PASS: TestDepositError_UserMessages/SYS_INVALID_TRANSITION (0.00s)
+=== RUN   TestNewDepositError_Structure
+--- PASS: TestNewDepositError_Structure (0.00s)
+=== RUN   TestValidTransitions
+=== RUN   TestValidTransitions/Requested→Validating
+=== RUN   TestValidTransitions/Validating→Analyzing
+=== RUN   TestValidTransitions/Validating→Rejected
+=== RUN   TestValidTransitions/Analyzing→Approved
+=== RUN   TestValidTransitions/Analyzing→Rejected
+=== RUN   TestValidTransitions/Approved→FundsPosted
+=== RUN   TestValidTransitions/FundsPosted→Completed
+=== RUN   TestValidTransitions/FundsPosted→Returned
+=== RUN   TestValidTransitions/Completed→Returned
+--- PASS: TestValidTransitions (0.00s)
+    --- PASS: TestValidTransitions/Requested→Validating (0.00s)
+    --- PASS: TestValidTransitions/Validating→Analyzing (0.00s)
+    --- PASS: TestValidTransitions/Validating→Rejected (0.00s)
+    --- PASS: TestValidTransitions/Analyzing→Approved (0.00s)
+    --- PASS: TestValidTransitions/Analyzing→Rejected (0.00s)
+    --- PASS: TestValidTransitions/Approved→FundsPosted (0.00s)
+    --- PASS: TestValidTransitions/FundsPosted→Completed (0.00s)
+    --- PASS: TestValidTransitions/FundsPosted→Returned (0.00s)
+    --- PASS: TestValidTransitions/Completed→Returned (0.00s)
+=== RUN   TestInvalidTransition_RequestedToApproved
+--- PASS: TestInvalidTransition_RequestedToApproved (0.00s)
+=== RUN   TestInvalidTransition_CompletedToApproved
+--- PASS: TestInvalidTransition_CompletedToApproved (0.00s)
+=== RUN   TestInvalidTransition_RejectedIsTerminal
+=== RUN   TestInvalidTransition_RejectedIsTerminal/Rejected→Requested
+=== RUN   TestInvalidTransition_RejectedIsTerminal/Rejected→Validating
+=== RUN   TestInvalidTransition_RejectedIsTerminal/Rejected→Analyzing
+=== RUN   TestInvalidTransition_RejectedIsTerminal/Rejected→Approved
+=== RUN   TestInvalidTransition_RejectedIsTerminal/Rejected→FundsPosted
+=== RUN   TestInvalidTransition_RejectedIsTerminal/Rejected→Completed
+=== RUN   TestInvalidTransition_RejectedIsTerminal/Rejected→Returned
+--- PASS: TestInvalidTransition_RejectedIsTerminal (0.00s)
+    --- PASS: TestInvalidTransition_RejectedIsTerminal/Rejected→Requested (0.00s)
+    --- PASS: TestInvalidTransition_RejectedIsTerminal/Rejected→Validating (0.00s)
+    --- PASS: TestInvalidTransition_RejectedIsTerminal/Rejected→Analyzing (0.00s)
+    --- PASS: TestInvalidTransition_RejectedIsTerminal/Rejected→Approved (0.00s)
+    --- PASS: TestInvalidTransition_RejectedIsTerminal/Rejected→FundsPosted (0.00s)
+    --- PASS: TestInvalidTransition_RejectedIsTerminal/Rejected→Completed (0.00s)
+    --- PASS: TestInvalidTransition_RejectedIsTerminal/Rejected→Returned (0.00s)
+=== RUN   TestInvalidTransition_ReturnedIsTerminal
+=== RUN   TestInvalidTransition_ReturnedIsTerminal/Returned→Requested
+=== RUN   TestInvalidTransition_ReturnedIsTerminal/Returned→Validating
+=== RUN   TestInvalidTransition_ReturnedIsTerminal/Returned→Analyzing
+=== RUN   TestInvalidTransition_ReturnedIsTerminal/Returned→Approved
+=== RUN   TestInvalidTransition_ReturnedIsTerminal/Returned→FundsPosted
+=== RUN   TestInvalidTransition_ReturnedIsTerminal/Returned→Completed
+=== RUN   TestInvalidTransition_ReturnedIsTerminal/Returned→Rejected
+--- PASS: TestInvalidTransition_ReturnedIsTerminal (0.00s)
+    --- PASS: TestInvalidTransition_ReturnedIsTerminal/Returned→Requested (0.00s)
+    --- PASS: TestInvalidTransition_ReturnedIsTerminal/Returned→Validating (0.00s)
+    --- PASS: TestInvalidTransition_ReturnedIsTerminal/Returned→Analyzing (0.00s)
+    --- PASS: TestInvalidTransition_ReturnedIsTerminal/Returned→Approved (0.00s)
+    --- PASS: TestInvalidTransition_ReturnedIsTerminal/Returned→FundsPosted (0.00s)
+    --- PASS: TestInvalidTransition_ReturnedIsTerminal/Returned→Completed (0.00s)
+    --- PASS: TestInvalidTransition_ReturnedIsTerminal/Returned→Rejected (0.00s)
+=== RUN   TestOptimisticLock
+--- PASS: TestOptimisticLock (0.00s)
+=== RUN   TestEventLogging_StateChangedWritten
+--- PASS: TestEventLogging_StateChangedWritten (0.00s)
+=== RUN   TestEventLogging_EveryTransitionWritesEvent
+--- PASS: TestEventLogging_EveryTransitionWritesEvent (0.00s)
+=== RUN   TestNotifierCalledOnValidTransition
+--- PASS: TestNotifierCalledOnValidTransition (0.00s)
+=== RUN   TestNotifierNotCalledOnInvalidTransition
+--- PASS: TestNotifierNotCalledOnInvalidTransition (0.00s)
+PASS
+ok  	github.com/apex-checkout/check-deposit/internal/orchestrator	(cached)
+=== RUN   TestProcessReturn_FundsPosted
+time=2026-03-12T03:03:07.388-05:00 level=INFO msg="ledger double entry posted" transfer_id=20945093-d514-43f1-9265-8ae178df4288 movement_id=04f584c3-0b77-4564-a98d-3d6dd1dd6034 amount=500.00 memo=REVERSAL
+time=2026-03-12T03:03:07.388-05:00 level=INFO msg="ledger double entry posted" transfer_id=20945093-d514-43f1-9265-8ae178df4288 movement_id=a3707e0c-9a14-4531-b402-52816615d54b amount=30.00 memo=RETURNED_CHECK_FEE
+time=2026-03-12T03:03:07.388-05:00 level=WARN msg="investor balance negative after return — flagging COLLECTIONS" transfer_id=20945093-d514-43f1-9265-8ae178df4288 correspondent_id=3169b698-e7ee-4d3e-9583-7a07ec2ece99 account_id=af5abbb5-0de9-4444-8676-21287811ce63 balance=-530.00
+time=2026-03-12T03:03:07.388-05:00 level=INFO msg="return processed successfully" transfer_id=20945093-d514-43f1-9265-8ae178df4288 correspondent_id=3169b698-e7ee-4d3e-9583-7a07ec2ece99 from_state=FundsPosted reason_code=R01 reversal_amount=500 fee_amount=30
+--- PASS: TestProcessReturn_FundsPosted (0.00s)
+=== RUN   TestProcessReturn_Completed
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=aec818f6-6ecf-4424-a2a7-cd0e22c2c822 movement_id=997de562-0183-4ee9-9239-c8e10114d44d amount=500.00 memo=REVERSAL
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=aec818f6-6ecf-4424-a2a7-cd0e22c2c822 movement_id=9e360839-f223-4553-847c-a50f779187e9 amount=30.00 memo=RETURNED_CHECK_FEE
+time=2026-03-12T03:03:07.389-05:00 level=WARN msg="investor balance negative after return — flagging COLLECTIONS" transfer_id=aec818f6-6ecf-4424-a2a7-cd0e22c2c822 correspondent_id=d3223b8d-333e-496c-8263-6c2bf02fff60 account_id=cbff6cfb-2019-4252-81e6-286cc04e008d balance=-530.00
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="return processed successfully" transfer_id=aec818f6-6ecf-4424-a2a7-cd0e22c2c822 correspondent_id=d3223b8d-333e-496c-8263-6c2bf02fff60 from_state=Completed reason_code=R02 reversal_amount=500 fee_amount=30
+--- PASS: TestProcessReturn_Completed (0.00s)
+=== RUN   TestProcessReturn_FeeFromConfig
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=82339dba-15fe-41c4-9dcc-74b7f3759517 movement_id=8ce472f2-b651-441a-a36a-36b97fb5cb9c amount=500.00 memo=REVERSAL
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=82339dba-15fe-41c4-9dcc-74b7f3759517 movement_id=954d5190-739d-4582-af7f-bae245837229 amount=25.00 memo=RETURNED_CHECK_FEE
+time=2026-03-12T03:03:07.389-05:00 level=WARN msg="investor balance negative after return — flagging COLLECTIONS" transfer_id=82339dba-15fe-41c4-9dcc-74b7f3759517 correspondent_id=4286129b-5148-4259-b1fd-1a711bad293d account_id=26c05bfb-b872-47df-aa1c-738e0f1c25b3 balance=-525.00
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="return processed successfully" transfer_id=82339dba-15fe-41c4-9dcc-74b7f3759517 correspondent_id=4286129b-5148-4259-b1fd-1a711bad293d from_state=FundsPosted reason_code=R01 reversal_amount=500 fee_amount=25
+--- PASS: TestProcessReturn_FeeFromConfig (0.00s)
+=== RUN   TestProcessReturn_NegativeBalance_SetsCollections
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=6e207942-6d54-4b83-b5ae-d6242777ae53 movement_id=84edbabe-5fc8-43c4-b801-7a55b25588d1 amount=500.00 memo=REVERSAL
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=6e207942-6d54-4b83-b5ae-d6242777ae53 movement_id=d2f40df9-4c7b-407d-a1ed-7cb4a6871cc8 amount=30.00 memo=RETURNED_CHECK_FEE
+time=2026-03-12T03:03:07.389-05:00 level=WARN msg="investor balance negative after return — flagging COLLECTIONS" transfer_id=6e207942-6d54-4b83-b5ae-d6242777ae53 correspondent_id=4b6685ca-88b0-40b7-991e-1e94884c8062 account_id=f997342a-5c2d-46d3-8065-73a36f46d24f balance=-530.00
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="return processed successfully" transfer_id=6e207942-6d54-4b83-b5ae-d6242777ae53 correspondent_id=4b6685ca-88b0-40b7-991e-1e94884c8062 from_state=FundsPosted reason_code=R01 reversal_amount=500 fee_amount=30
+--- PASS: TestProcessReturn_NegativeBalance_SetsCollections (0.00s)
+=== RUN   TestProcessReturn_Idempotent
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="return already processed — no-op" transfer_id=fee00bd6-a552-4786-af31-b92a0869ed6b correspondent_id=ad1c66b1-5cff-4d9f-b656-ceb82fa32bf7
+--- PASS: TestProcessReturn_Idempotent (0.00s)
+=== RUN   TestProcessReturn_InvalidState_Rejected
+--- PASS: TestProcessReturn_InvalidState_Rejected (0.00s)
+=== RUN   TestProcessReturn_Notification
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=de35d6cd-7905-4973-afe2-1e8af83c88e9 movement_id=a6bbda36-573d-4e00-8536-5afb6f5a07d8 amount=500.00 memo=FREE
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=de35d6cd-7905-4973-afe2-1e8af83c88e9 movement_id=6284f821-7660-46fc-a9d2-99a53ad95e11 amount=500.00 memo=REVERSAL
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=de35d6cd-7905-4973-afe2-1e8af83c88e9 movement_id=473eb0f7-ea47-4ad8-afe7-bf788b282383 amount=30.00 memo=RETURNED_CHECK_FEE
+time=2026-03-12T03:03:07.389-05:00 level=WARN msg="investor balance negative after return — flagging COLLECTIONS" transfer_id=de35d6cd-7905-4973-afe2-1e8af83c88e9 correspondent_id=8634e4a6-9dbe-402c-b138-49dc6e01f1d8 account_id=0b046f16-ec03-4535-864b-a02ba88f18fe balance=-30.00
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="return processed successfully" transfer_id=de35d6cd-7905-4973-afe2-1e8af83c88e9 correspondent_id=8634e4a6-9dbe-402c-b138-49dc6e01f1d8 from_state=FundsPosted reason_code=R01 reversal_amount=500 fee_amount=30
+--- PASS: TestProcessReturn_Notification (0.00s)
+=== RUN   TestProcessReturn_Events
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=e31840f0-ecc4-4892-a1df-9b6b6cb659f9 movement_id=29f02c22-672d-4fad-8dca-7e037e7ca8e6 amount=500.00 memo=REVERSAL
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=e31840f0-ecc4-4892-a1df-9b6b6cb659f9 movement_id=877867b6-28af-4c3b-be08-c931d4ce3104 amount=30.00 memo=RETURNED_CHECK_FEE
+time=2026-03-12T03:03:07.389-05:00 level=WARN msg="investor balance negative after return — flagging COLLECTIONS" transfer_id=e31840f0-ecc4-4892-a1df-9b6b6cb659f9 correspondent_id=409bb0ae-1d47-412c-8fb8-93c1a7b31b0f account_id=31aae71c-15a9-4bdd-8834-0079e50dc846 balance=-530.00
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="return processed successfully" transfer_id=e31840f0-ecc4-4892-a1df-9b6b6cb659f9 correspondent_id=409bb0ae-1d47-412c-8fb8-93c1a7b31b0f from_state=FundsPosted reason_code=R01 reversal_amount=500 fee_amount=30
+--- PASS: TestProcessReturn_Events (0.00s)
+=== RUN   TestProcessReturn_LedgerReconciliation
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=68dba5a9-c3d8-487d-84c3-48a4737f3a8d movement_id=235013b8-7dea-43e5-b82c-6ea8f4e6bae3 amount=500.00 memo=FREE
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=68dba5a9-c3d8-487d-84c3-48a4737f3a8d movement_id=88961c04-b039-47dd-a6da-0fe72dc40e87 amount=500.00 memo=REVERSAL
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="ledger double entry posted" transfer_id=68dba5a9-c3d8-487d-84c3-48a4737f3a8d movement_id=88cde602-5939-4296-bcba-4c394b3813b0 amount=30.00 memo=RETURNED_CHECK_FEE
+time=2026-03-12T03:03:07.389-05:00 level=WARN msg="investor balance negative after return — flagging COLLECTIONS" transfer_id=68dba5a9-c3d8-487d-84c3-48a4737f3a8d correspondent_id=8c9ba31f-9613-42dd-bfbe-dfeae3b0e28e account_id=25d6c3c4-d41c-41f0-8f32-70446055f70c balance=-30.00
+time=2026-03-12T03:03:07.389-05:00 level=INFO msg="return processed successfully" transfer_id=68dba5a9-c3d8-487d-84c3-48a4737f3a8d correspondent_id=8c9ba31f-9613-42dd-bfbe-dfeae3b0e28e from_state=FundsPosted reason_code=R01 reversal_amount=500 fee_amount=30
+--- PASS: TestProcessReturn_LedgerReconciliation (0.00s)
+PASS
+ok  	github.com/apex-checkout/check-deposit/internal/returns	(cached)
+=== RUN   TestCutoffForDate
+--- PASS: TestCutoffForDate (0.00s)
+=== RUN   TestCutoff_Exactly630
+--- PASS: TestCutoff_Exactly630 (0.00s)
+=== RUN   TestCutoff_Before630
+--- PASS: TestCutoff_Before630 (0.00s)
+=== RUN   TestCutoff_After630
+--- PASS: TestCutoff_After630 (0.00s)
+=== RUN   TestCutoff_Weekend
+--- PASS: TestCutoff_Weekend (0.00s)
+=== RUN   TestCutoff_Holiday
+--- PASS: TestCutoff_Holiday (0.00s)
+=== RUN   TestIsBusinessDay_Weekday
+--- PASS: TestIsBusinessDay_Weekday (0.00s)
+=== RUN   TestIsBusinessDay_Saturday
+--- PASS: TestIsBusinessDay_Saturday (0.00s)
+=== RUN   TestIsBusinessDay_Sunday
+--- PASS: TestIsBusinessDay_Sunday (0.00s)
+=== RUN   TestIsBusinessDay_MLKDay
+--- PASS: TestIsBusinessDay_MLKDay (0.00s)
+=== RUN   TestIsBusinessDay_NewYears
+--- PASS: TestIsBusinessDay_NewYears (0.00s)
+=== RUN   TestCurrentCutoff_BeforeCutoff
+--- PASS: TestCurrentCutoff_BeforeCutoff (0.00s)
+=== RUN   TestCurrentCutoff_AfterCutoff
+--- PASS: TestCurrentCutoff_AfterCutoff (0.00s)
+=== RUN   TestBatchCutoffDate_BeforeCutoff
+--- PASS: TestBatchCutoffDate_BeforeCutoff (0.00s)
+=== RUN   TestBatchCutoffDate_AfterCutoff
+--- PASS: TestBatchCutoffDate_AfterCutoff (0.00s)
+=== RUN   TestEngine_Trigger_NoTransfers
+time=2026-03-12T03:03:08.158-05:00 level=INFO msg="settlement trigger" cutoff_utc=2026-03-12T23:30:00.000Z
+--- PASS: TestEngine_Trigger_NoTransfers (0.00s)
+=== RUN   TestEngine_Trigger_GroupsByCorrespondent
+time=2026-03-12T03:03:08.159-05:00 level=INFO msg="settlement trigger" cutoff_utc=2026-03-12T23:30:00.000Z
+--- PASS: TestEngine_Trigger_GroupsByCorrespondent (0.00s)
+=== RUN   TestEngine_Trigger_FileStructure
+time=2026-03-12T03:03:08.159-05:00 level=INFO msg="settlement trigger" cutoff_utc=2026-03-12T23:30:00.000Z
+--- PASS: TestEngine_Trigger_FileStructure (0.00s)
+=== RUN   TestEngine_Trigger_NoRejectedTransfers
+time=2026-03-12T03:03:08.160-05:00 level=INFO msg="settlement trigger" cutoff_utc=2026-03-12T23:30:00.000Z
+--- PASS: TestEngine_Trigger_NoRejectedTransfers (0.00s)
+=== RUN   TestEngine_Trigger_TotalsCorrect
+time=2026-03-12T03:03:08.160-05:00 level=INFO msg="settlement trigger" cutoff_utc=2026-03-12T23:30:00.000Z
+--- PASS: TestEngine_Trigger_TotalsCorrect (0.00s)
+=== RUN   TestEngine_AcknowledgeBatch
+time=2026-03-12T03:03:08.161-05:00 level=INFO msg="batch acknowledged" batch_id=3532126d-b0d1-4457-85d4-98253b2a2217 transfer_count=4
+--- PASS: TestEngine_AcknowledgeBatch (0.00s)
+=== RUN   TestEngine_AcknowledgeBatch_Idempotent
+--- PASS: TestEngine_AcknowledgeBatch_Idempotent (0.00s)
+=== RUN   TestEngine_Trigger_FilesSavedToDisk
+time=2026-03-12T03:03:08.161-05:00 level=INFO msg="settlement trigger" cutoff_utc=2026-03-12T23:30:00.000Z
+--- PASS: TestEngine_Trigger_FilesSavedToDisk (0.00s)
+PASS
+ok  	github.com/apex-checkout/check-deposit/internal/settlement	(cached)
+?   	github.com/apex-checkout/check-deposit/internal/store	[no test files]
+?   	github.com/apex-checkout/check-deposit/internal/vendorclient	[no test files]
+?   	github.com/apex-checkout/check-deposit/web/node_modules/flatted/golang/pkg/flatted	[no test files]
