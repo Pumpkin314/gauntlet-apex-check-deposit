@@ -93,6 +93,13 @@ func main() {
 		Broadcaster: broadcaster,
 	}
 
+	// Operator handler
+	operatorHandler := &handlers.OperatorHandler{
+		Transfers:        transferStore,
+		OrchestratorDeps: orchDeps,
+		Log:              logger,
+	}
+
 	// Scenarios handler
 	scenariosPath := os.Getenv("SCENARIOS_PATH")
 	if scenariosPath == "" {
@@ -127,6 +134,10 @@ func main() {
 	// SSE events stream
 	mux.HandleFunc("GET /events/stream", eventsHandler.Stream)
 
+	// Operator (auth-gated)
+	mux.HandleFunc("GET /operator/queue", middleware.Auth(operatorHandler.GetQueue))
+	mux.HandleFunc("POST /operator/actions", middleware.Auth(operatorHandler.PostAction))
+
 	// Scenarios
 	if scenariosHandler != nil {
 		mux.HandleFunc("GET /scenarios", scenariosHandler.List)
@@ -146,7 +157,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, X-Scenario")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return

@@ -234,6 +234,92 @@ func (s *TransferStore) SetImageRefs(ctx context.Context, transferID, front, bac
 	return err
 }
 
+// QueueFilter holds optional filter parameters for the operator queue.
+type QueueFilter struct {
+	CorrespondentID string  // empty = all (admin)
+	MinAmount       float64 // 0 = no filter
+	MaxAmount       float64 // 0 = no filter
+	AccountID       string  // empty = no filter
+	SortBy          string  // "created_at" (default), "amount"
+}
+
+// ListQueue returns transfers in the operator review queue:
+// state='Analyzing' AND review_reason IS NOT NULL, with optional filters.
+func (s *TransferStore) ListQueue(ctx context.Context, f QueueFilter) ([]*Transfer, error) {
+	q := `
+		SELECT
+			id, account_id, from_account_id, correspondent_id,
+			amount, currency, type, sub_type, transfer_type, memo, state,
+			review_reason, error_code, contribution_type,
+			vendor_transaction_id, confidence_score,
+			micr_data,
+			front_image_ref, back_image_ref,
+			submitted_at, created_at, updated_at
+		FROM transfers
+		WHERE state = 'Analyzing' AND review_reason IS NOT NULL`
+
+	args := []interface{}{}
+	argIdx := 1
+
+	if f.CorrespondentID != "" {
+		q += fmt.Sprintf(" AND correspondent_id = $%d", argIdx)
+		args = append(args, f.CorrespondentID)
+		argIdx++
+	}
+	if f.MinAmount > 0 {
+		q += fmt.Sprintf(" AND amount >= $%d", argIdx)
+		args = append(args, f.MinAmount)
+		argIdx++
+	}
+	if f.MaxAmount > 0 {
+		q += fmt.Sprintf(" AND amount <= $%d", argIdx)
+		args = append(args, f.MaxAmount)
+		argIdx++
+	}
+	if f.AccountID != "" {
+		q += fmt.Sprintf(" AND account_id = $%d", argIdx)
+		args = append(args, f.AccountID)
+		argIdx++
+	}
+
+	switch f.SortBy {
+	case "amount":
+		q += " ORDER BY amount ASC"
+	default:
+		q += " ORDER BY created_at ASC"
+	}
+
+	rows, err := s.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transfers []*Transfer
+	for rows.Next() {
+		var t Transfer
+		var micrRaw []byte
+		err := rows.Scan(
+			&t.ID, &t.AccountID, &t.FromAccountID, &t.CorrespondentID,
+			&t.Amount, &t.Currency, &t.Type, &t.SubType, &t.TransferType,
+			&t.Memo, &t.State,
+			&t.ReviewReason, &t.ErrorCode, &t.ContributionType,
+			&t.VendorTransactionID, &t.ConfidenceScore,
+			&micrRaw,
+			&t.FrontImageRef, &t.BackImageRef,
+			&t.SubmittedAt, &t.CreatedAt, &t.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if micrRaw != nil {
+			json.Unmarshal(micrRaw, &t.MICRData)
+		}
+		transfers = append(transfers, &t)
+	}
+	return transfers, rows.Err()
+}
+
 // GetEvents returns all transfer_events for a transfer, ordered by created_at.
 func (s *TransferStore) GetEvents(ctx context.Context, transferID string) ([]TransferEvent, error) {
 	const q = `
