@@ -119,11 +119,17 @@ func main() {
 		Log:       logger,
 	}
 
-	settlementHandler := &handlers.SettlementHandler{
+	fullSettlementHandler := &handlers.SettlementHandler{
 		Engine:        settlementEngine,
 		Batches:       settlementStore,
 		SettlementURL: settlementBankURL,
 		Log:           logger,
+	}
+
+	// Notification store + handler
+	notificationStore := store.NewNotificationStore(db)
+	notificationHandler := &handlers.NotificationHandler{
+		Notifications: notificationStore,
 	}
 
 	// Scenarios handler
@@ -158,11 +164,11 @@ func main() {
 	mux.HandleFunc("GET /health/ledger", ledgerHandler.HealthLedger)
 
 	// Settlement health
-	settlementHandler := &handlers.SettlementHealthHandler{
+	settlementHealthHandler := &handlers.SettlementHealthHandler{
 		Querier: &sqlSettlementQuerier{db: db},
 	}
-	mux.HandleFunc("GET /health/settlement", settlementHandler.Health)
-	mux.HandleFunc("POST /health/settlement/trigger", settlementHandler.Trigger)
+	mux.HandleFunc("GET /health/settlement", settlementHealthHandler.Health)
+	mux.HandleFunc("POST /health/settlement/trigger", settlementHealthHandler.Trigger)
 
 	// SSE events stream
 	mux.HandleFunc("GET /events/stream", eventsHandler.Stream)
@@ -172,9 +178,14 @@ func main() {
 	mux.HandleFunc("POST /operator/actions", middleware.Auth(operatorHandler.PostAction))
 
 	// Settlement
-	mux.HandleFunc("POST /settlement/trigger", settlementHandler.Trigger)
-	mux.HandleFunc("GET /settlement/status", settlementHandler.Status)
-	mux.HandleFunc("GET /settlement/batches", settlementHandler.ListBatches)
+	mux.HandleFunc("POST /settlement/trigger", fullSettlementHandler.Trigger)
+	mux.HandleFunc("GET /settlement/status", fullSettlementHandler.Status)
+	mux.HandleFunc("GET /settlement/batches", fullSettlementHandler.ListBatches)
+	mux.HandleFunc("POST /admin/simulate-return", fullSettlementHandler.SimulateReturn)
+
+	// Notifications (investor auth)
+	mux.HandleFunc("GET /notifications", middleware.Auth(notificationHandler.GetNotifications))
+	mux.HandleFunc("PATCH /notifications/{id}/read", middleware.Auth(notificationHandler.MarkRead))
 
 	// Scenarios
 	if scenariosHandler != nil {

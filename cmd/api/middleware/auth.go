@@ -12,13 +12,15 @@ const (
 	CtxRole            contextKey = "role"
 	CtxCorrespondentID contextKey = "correspondent_id"
 	CtxOperatorID      contextKey = "operator_id"
+	CtxAccountID       contextKey = "account_id"
 )
 
 // DemoToken represents a hardcoded token for the demo environment.
 type DemoToken struct {
 	OperatorID      string
-	Role            string // "operator" or "admin"
+	Role            string // "operator", "admin", or "investor"
 	CorrespondentID string // empty for admin (can see all)
+	AccountID       string // investor account UUID (seed data)
 }
 
 // demoTokens maps Bearer token values to their associated identity.
@@ -37,6 +39,17 @@ var demoTokens = map[string]DemoToken{
 		OperatorID: "admin-001",
 		Role:       "admin",
 		// No CorrespondentID — can see all transfers.
+	},
+	// Investor tokens — keyed to seed account IDs from db/seed.sql.
+	"investor-alpha": {
+		Role:            "investor",
+		CorrespondentID: "c0000000-0000-0000-0000-000000000001",
+		AccountID:       "a0000000-0000-0000-0000-000000000001",
+	},
+	"investor-beta": {
+		Role:            "investor",
+		CorrespondentID: "c0000000-0000-0000-0000-000000000002",
+		AccountID:       "a0000000-0000-0000-0000-000000000007",
 	},
 }
 
@@ -69,6 +82,9 @@ func Auth(next http.HandlerFunc) http.HandlerFunc {
 		if dt.CorrespondentID != "" {
 			ctx = context.WithValue(ctx, CtxCorrespondentID, dt.CorrespondentID)
 		}
+		if dt.AccountID != "" {
+			ctx = context.WithValue(ctx, CtxAccountID, dt.AccountID)
+		}
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
@@ -90,5 +106,12 @@ func CorrespondentIDFromContext(ctx context.Context) string {
 // OperatorIDFromContext returns the operator_id from the request context.
 func OperatorIDFromContext(ctx context.Context) string {
 	v, _ := ctx.Value(CtxOperatorID).(string)
+	return v
+}
+
+// AccountIDFromContext returns the investor account_id from the request context.
+// Non-empty only for investor tokens.
+func AccountIDFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(CtxAccountID).(string)
 	return v
 }
