@@ -48,6 +48,8 @@ export default function FlowPage() {
   const [connected, setConnected] = useState(false)
   const [settlement, setSettlement] = useState<SettlementHealth | null>(null)
   const [triggering, setTriggering] = useState(false)
+  const [simulatingReturn, setSimulatingReturn] = useState<string | null>(null)
+  const [returnMsg, setReturnMsg] = useState<string | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const fetchSettlement = useCallback(() => {
@@ -62,6 +64,27 @@ export default function FlowPage() {
     const interval = setInterval(fetchSettlement, 5000)
     return () => clearInterval(interval)
   }, [fetchSettlement])
+
+  const simulateReturn = async (transferId: string) => {
+    setSimulatingReturn(transferId)
+    setReturnMsg(null)
+    try {
+      const res = await fetch(`${API_URL}/admin/simulate-return`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transfer_id: transferId, reason_code: 'R01' }),
+      })
+      if (res.ok) {
+        setReturnMsg(`Return initiated for ${transferId.slice(0, 8)}… (R01 - Insufficient Funds)`)
+      } else {
+        setReturnMsg('Return request failed.')
+      }
+    } catch {
+      setReturnMsg('Could not reach API.')
+    } finally {
+      setSimulatingReturn(null)
+    }
+  }
 
   const triggerSettlement = async () => {
     setTriggering(true)
@@ -205,12 +228,26 @@ export default function FlowPage() {
         {/* Transfer Cards */}
         <div>
           <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Active Transfers</h2>
+          {returnMsg && (
+            <div style={{
+              marginBottom: '0.5rem',
+              padding: '0.5rem 0.75rem',
+              background: '#e8f5e9',
+              border: '1px solid #4caf50',
+              borderRadius: '4px',
+              fontSize: '0.8rem',
+              color: '#1b5e20',
+            }}>
+              {returnMsg}
+            </div>
+          )}
           {transferList.length === 0 && (
             <p style={{ color: '#999' }}>No transfers yet. Submit a deposit to see live updates.</p>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {transferList.map(t => {
               const colors = stateColors[t.state] || { bg: '#f5f5f5', border: '#999', label: t.state }
+              const canSimulateReturn = t.state === 'FundsPosted' || t.state === 'Completed'
               return (
                 <div key={t.id} style={{
                   padding: '0.75rem',
@@ -232,6 +269,25 @@ export default function FlowPage() {
                   <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.25rem' }}>
                     {t.events.length} transitions | Last: {new Date(t.lastUpdate).toLocaleTimeString()}
                   </div>
+                  {canSimulateReturn && (
+                    <button
+                      onClick={() => simulateReturn(t.id)}
+                      disabled={simulatingReturn === t.id}
+                      style={{
+                        marginTop: '0.5rem',
+                        padding: '0.25rem 0.6rem',
+                        background: simulatingReturn === t.id ? '#bbb' : '#b71c1c',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: simulatingReturn === t.id ? 'not-allowed' : 'pointer',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {simulatingReturn === t.id ? 'Simulating…' : 'Simulate Return'}
+                    </button>
+                  )}
                 </div>
               )
             })}
