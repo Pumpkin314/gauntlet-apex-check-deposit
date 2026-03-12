@@ -271,6 +271,34 @@ func TestValidate_IRACleanPass(t *testing.T) {
 	}
 }
 
+func TestValidate_MICRFailure(t *testing.T) {
+	h := mustNewHandler(t)
+
+	w := postValidate(h, `{"account_id":"a0000000-0000-0000-0000-000000000004","amount":500.00}`, nil)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp validateResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.IQAStatus != "pass" {
+		t.Errorf("iqa_status: want %q, got %q", "pass", resp.IQAStatus)
+	}
+	if resp.MICRData != nil {
+		t.Errorf("micr_data: want nil, got %+v", resp.MICRData)
+	}
+	if resp.ConfidenceScore != 0.0 {
+		t.Errorf("confidence_score: want 0.0, got %f", resp.ConfidenceScore)
+	}
+	if resp.ScenarioUsed != "micr_failure" {
+		t.Errorf("scenario_used: want %q, got %q", "micr_failure", resp.ScenarioUsed)
+	}
+}
+
 func TestScenariosLoadedAtStartup(t *testing.T) {
 	// Verify scenarios are pre-loaded (byName and byCode populated) rather than read per request.
 	h := mustNewHandler(t)

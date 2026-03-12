@@ -45,7 +45,7 @@ scenarios:
       iqa_status: "pass"
       iqa_error_type: "VSS_MICR_READ_FAIL"
       micr_data: null
-      confidence_score: 0.85
+      confidence_score: 0.0
       duplicate_flag: false
       duplicate_original_tx_id: null
     expected_routing: "Analyzing (flagged for review)"
