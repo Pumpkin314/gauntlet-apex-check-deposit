@@ -140,16 +140,87 @@ make test-e2e     # cd web && npx playwright test
 ## Testing
 
 ```bash
-# Run Go unit tests (14+ tests)
+# Run Go unit tests (94 tests across 11 packages)
 make test
 
-# Run Playwright E2E tests (11+ tests)
+# Run Playwright E2E tests (29 tests across 5 suites)
 make test-e2e
 
 # Generate full test report
 scripts/generate-report.sh
 # Output: reports/TEST_REPORT.md, reports/unit-tests.txt, reports/playwright/
 ```
+
+**Test coverage by area:** state machine (25), funding rules (15), VSS stub (14), ledger (11), returns (11), settlement (20), auth (5), PII redaction (11), E2E flows (29).
+
+## Observability & Monitoring
+
+The system provides full observability across the deposit lifecycle without external infrastructure (no Redis, Kafka, or OpenTelemetry in MVP).
+
+### Health Endpoints
+
+| Endpoint | What It Checks | Healthy Response |
+|----------|---------------|------------------|
+| `GET /health` | API server liveness | `{"status": "ok"}` |
+| `GET /health/ledger` | Ledger reconciliation invariant (SUM = 0) | `{"healthy": true, "sum": "0.00"}` |
+| `GET /health/settlement` | Unbatched transfers past cutoff | `{"healthy": true, "unbatched_count": 0, "ready_count": N}` |
+
+### Per-Deposit Decision Trace
+
+Every deposit generates a full event chain in the `transfer_events` table, queryable via `GET /deposits/{id}/events`:
+
+```
+submitted        → inputs (amount, account_code)
+vss_called       → what was sent to Vendor Service
+vss_result       → IQA status, confidence, MICR data, duplicate flag
+state_changed    → every transition (with from/to states)
+fs_evaluated     → funding decision + reason code
+ledger_posted    → debit/credit accounts + amount
+operator_action  → who approved/rejected + reason (if flagged)
+settlement_completed → batch_id, acknowledged_at
+return_received  → reason code (if bounced)
+return_processed → reversal amount + fee amount
+```
+
+### Structured Logging
+
+All Go services use `log/slog` with JSON output. Key fields always present:
+
+- `transfer_id` and `correspondent_id` on every transfer-related log line
+- PII redaction via `internal/logging/redact.go` — routing/account numbers masked to last 4 digits (`*****1234`)
+- Error context propagated with `slog.ErrorContext`
+
+Key log locations:
+- Orchestrator flow: `internal/orchestrator/flow.go` (VSS calls, funding decisions, ledger posting)
+- Return processing: `internal/returns/handler.go` (reversal, fee, collections flagging)
+- Settlement engine: `internal/settlement/engine.go` (batch generation, file writes, acknowledgment)
+
+### Real-Time Dashboard (SSE)
+
+State changes propagate to connected clients in real-time:
+
+```
+PostgreSQL pg_notify('transfer_updates', payload)
+    → Go SSE broadcaster (internal/events/sse.go)
+        → HTTP stream at GET /events/stream
+            → React FlowPage dashboard
+```
+
+No polling. No external message broker. 30-second keepalive pings detect disconnected clients.
+
+### Ledger Reconciliation
+
+The double-entry invariant (`SUM(CREDIT) - SUM(DEBIT) = 0`) is:
+- Enforced at write time: `internal/ledger/service.go:PostDoubleEntry()` always writes exactly 2 entries
+- Verified via health check: `GET /health/ledger` runs the reconciliation query
+- Tested: `internal/ledger/service_test.go` (11 tests including reconciliation after returns)
+
+### Settlement Monitoring
+
+`GET /health/settlement` detects operational issues:
+- `unbatched_count`: transfers past midnight cutoff without a batch (should be 0)
+- `ready_count`: FundsPosted transfers ready for next batch
+- `last_batch`: most recent batch metadata (status, submitted_at, acknowledged_at)
 
 ## Documentation
 
@@ -158,6 +229,67 @@ scripts/generate-report.sh
 - [Architecture](docs/architecture.md) — System diagram, data flow, package structure
 - [Decision Log](docs/decision_log.md) — 12 key architectural decisions with rationale
 - [Submission](SUBMISSION.md) — Deliverables checklist and short write-up
+- [Verification](VERIFICATION.md) — Spec requirement traceability (every requirement mapped to code + tests)
+- [Rubric Audit](docs/rubric_audit.md) — Evaluation rubric gap analysis
+
+## GCP Deployment
+
+### Prerequisites
+
+CLIs on PATH:
+- `docker` (running)
+- `pulumi`
+- `gcloud`
+
+### Auth Setup
+
+```bash
+# 1. Login to GCP
+gcloud auth login
+
+# 2. Configure Docker to push to Artifact Registry
+gcloud auth configure-docker us-central1-docker.pkg.dev
+
+# 3. Pulumi backend (if not already configured)
+pulumi login          # Pulumi Cloud
+# or: pulumi login --local
+```
+
+### Deploy
+
+```bash
+make deploy-dev GCP_PROJECT=apex-check-deposit
+```
+
+See [docs/architecture.md](docs/architecture.md#gcp-infrastructure-pulumi) for the full infrastructure diagram and resource inventory.
+
+## Roadmap
+
+### MVP (Milestone 1) — Current
+
+Everything in this repo. Full deposit lifecycle, 7 VSS scenarios, operator workflow, settlement, returns, 123 tests.
+
+### Milestone 2 — Hardening + Infra Signals
+
+| Item | What Changes | MVP Seam |
+|------|-------------|----------|
+| gRPC extraction | Funding Service and/or Ledger as separate gRPC services | Interfaces already defined (`FundingServiceClient`, `LedgerService`) — swap implementation, zero caller changes |
+| Redis idempotency cache | Fast-path TTL cache in front of Postgres `idempotency_keys` table | Same `Idempotency-Key` API contract; Redis is a read-through optimization |
+| X9 binary settlement files | Replace JSON with real X9.37 via `moov-io/imagecashletter` | `SettlementFile` struct maps 1:1 to X9 concepts already |
+| pgcrypto encryption | Column-level encrypt/decrypt via accessor functions | `internal/store/` is the only SQL touchpoint — add there |
+| RLS policy refinement | Tighter row-level security per correspondent | `db/migrations/009_rls_policies.sql` already scaffolded |
+| `CompletedFinalized` state | Background finalization job after settlement window closes | Add one state + one transition to `states.go` |
+
+### Milestone 3 — Differentiation
+
+| Item | What It Adds |
+|------|-------------|
+| Risk dashboard (`/admin/risk`) | Float exposure by correspondent, return rates, top investors by outstanding provisional credit |
+| GCP Identity Platform | Real auth — Firebase JWT custom claims replace demo tokens via same `middleware.Auth()` interface |
+| Decision trace search | Cross-transfer search on `transfer_events` with admin tab |
+| QA/staging stack | Third Pulumi stack for pre-prod validation |
+
+See `docs/prd.md` sections 12.2–12.3 for full details. Architecture decisions in `docs/decision_log.md` (#4, #7, #8, #9) document each MVP seam designed for these upgrades.
 
 ## Environment Variables
 
