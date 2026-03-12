@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/lib/pq" // Postgres driver
 )
 
@@ -131,6 +132,25 @@ func (s *TransferStore) UpdateState(ctx context.Context, transferID, from, to st
 		return ErrOptimisticLock
 	}
 	return err
+}
+
+// HasRecentTransfer returns true if a non-terminal transfer for the same account
+// and amount was submitted within the given time window.
+// Non-terminal states: anything except Rejected and Returned.
+// Implements funding.DuplicateChecker.
+func (s *TransferStore) HasRecentTransfer(ctx context.Context, accountID uuid.UUID, amount float64, window time.Duration) (bool, error) {
+	since := time.Now().Add(-window)
+	const q = `
+		SELECT EXISTS (
+			SELECT 1 FROM transfers
+			WHERE account_id = $1
+			  AND amount = $2
+			  AND state NOT IN ('Rejected', 'Returned')
+			  AND submitted_at > $3
+		)`
+	var exists bool
+	err := s.db.QueryRowContext(ctx, q, accountID, amount, since).Scan(&exists)
+	return exists, err
 }
 
 // WriteEvent inserts a row into transfer_events.
