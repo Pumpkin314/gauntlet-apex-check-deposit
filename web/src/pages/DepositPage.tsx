@@ -6,31 +6,38 @@ import DepositError from '../components/DepositError'
 // Demo scenarios mapped to seed account codes (from db/seed.sql)
 const SCENARIOS = [
   {
+    key: 'clean_pass',
     label: 'Alpha — Clean Pass (ALPHA-001)',
     accountCode: 'ALPHA-001',
     scenarioName: 'clean_pass',
   },
   {
+    key: 'iqa_fail_blur',
     label: 'Alpha — IQA Blur (ALPHA-002)',
     accountCode: 'ALPHA-002',
     scenarioName: 'iqa_fail_blur',
   },
   {
+    key: 'iqa_fail_glare',
     label: 'Alpha — IQA Glare (ALPHA-003)',
     accountCode: 'ALPHA-003',
     scenarioName: 'iqa_fail_glare',
   },
   {
+    key: 'duplicate_detected',
     label: 'Beta — Duplicate Check (BETA-001)',
     accountCode: 'BETA-001',
     scenarioName: 'duplicate_detected',
   },
   {
-    label: 'Beta — Over Limit (BETA-002)',
-    accountCode: 'BETA-002',
+    key: 'over_limit',
+    label: 'Alpha — Over Limit ($5001)',
+    accountCode: 'ALPHA-001',
     scenarioName: 'clean_pass',
+    defaultAmount: '5001',
   },
   {
+    key: 'micr_failure',
     label: 'Alpha — MICR Failure (ALPHA-004)',
     accountCode: 'ALPHA-004',
     scenarioName: 'micr_failure',
@@ -49,13 +56,13 @@ const PLACEHOLDER_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAA
 
 export default function DepositPage() {
   const navigate = useNavigate()
-  const [scenarioName, setScenarioName] = useState<string>(SCENARIOS[0].scenarioName)
+  const [scenarioKey, setScenarioKey] = useState<string>(SCENARIOS[0].key)
   const [amount, setAmount] = useState('')
   const [loading, setLoading] = useState(false)
   const [rejected, setRejected] = useState<RejectedTransfer | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const selectedScenario = SCENARIOS.find(s => s.scenarioName === scenarioName) ?? SCENARIOS[0]
+  const selectedScenario = SCENARIOS.find(s => s.key === scenarioKey) ?? SCENARIOS[0]
 
   function resetForm() {
     setRejected(null)
@@ -144,8 +151,15 @@ export default function DepositPage() {
             </label>
             <select
               id="scenario"
-              value={scenarioName}
-              onChange={(e) => setScenarioName(e.target.value)}
+              value={scenarioKey}
+              onChange={(e) => {
+                const key = e.target.value
+                setScenarioKey(key)
+                const scenario = SCENARIOS.find(s => s.key === key)
+                if (scenario && 'defaultAmount' in scenario && scenario.defaultAmount) {
+                  setAmount(scenario.defaultAmount)
+                }
+              }}
               style={{
                 width: '100%',
                 padding: '0.5rem',
@@ -155,7 +169,7 @@ export default function DepositPage() {
               }}
             >
               {SCENARIOS.map((s) => (
-                <option key={s.scenarioName} value={s.scenarioName}>
+                <option key={s.key} value={s.key}>
                   {s.label}
                 </option>
               ))}
