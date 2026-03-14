@@ -15,6 +15,7 @@ import (
 
 	"github.com/apex-checkout/check-deposit/cmd/api/handlers"
 	"github.com/apex-checkout/check-deposit/cmd/api/middleware"
+	"github.com/apex-checkout/check-deposit/internal/cloudauth"
 	"github.com/apex-checkout/check-deposit/internal/events"
 	"github.com/apex-checkout/check-deposit/internal/funding"
 	"github.com/apex-checkout/check-deposit/internal/ledger"
@@ -25,7 +26,10 @@ import (
 )
 
 func main() {
-	port := os.Getenv("API_PORT")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = os.Getenv("API_PORT")
+	}
 	if port == "" {
 		port = "8080"
 	}
@@ -39,8 +43,16 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	defer db.Close()
-	if err := db.Ping(); err != nil {
-		log.Fatalf("failed to ping database: %v", err)
+	// Retry db.Ping — Cloud SQL proxy socket may take a few seconds
+	for i := 0; i < 30; i++ {
+		if err := db.Ping(); err == nil {
+			break
+		} else if i == 29 {
+			log.Fatalf("failed to ping database after 30 retries: %v", err)
+		} else {
+			logger.Warn("waiting for database...", "attempt", i+1, "error", err)
+			time.Sleep(2 * time.Second)
+		}
 	}
 
 	// Create stores
@@ -58,7 +70,7 @@ func main() {
 	if vssURL == "" {
 		vssURL = "http://localhost:8081"
 	}
-	vssClient := vendorclient.NewHTTPClient(vssURL)
+	vssClient := vendorclient.NewHTTPClient(vssURL, cloudauth.NewClient(vssURL))
 
 	// Orchestrator deps
 	orchDeps := orchestrator.Deps{
@@ -138,6 +150,7 @@ func main() {
 		Engine:        settlementEngine,
 		Batches:       settlementStore,
 		SettlementURL: settlementBankURL,
+		HTTPClient:    cloudauth.NewClient(settlementBankURL),
 		Log:           logger,
 	}
 
@@ -162,6 +175,7 @@ func main() {
 	})
 
 	// Deposits
+	mux.HandleFunc("GET /deposits", depositHandler.ListDeposits)
 	mux.HandleFunc("POST /deposits", middleware.Idempotency(idempStore, depositHandler.CreateDeposit))
 	mux.HandleFunc("GET /deposits/{id}", depositHandler.GetDeposit)
 	mux.HandleFunc("GET /deposits/{id}/events", depositHandler.GetDepositEvents)
@@ -205,7 +219,13 @@ func main() {
 	}
 
 	// CORS middleware for frontend
-	handler := corsMiddleware(mux)
+	// Wrap with /api prefix stripping for Firebase Hosting rewrites.
+	// /api/deposits → strips prefix → /deposits (Firebase path)
+	// /deposits → routes directly (local dev, Cloud Run direct, tests)
+	apiMux := http.NewServeMux()
+	apiMux.Handle("/api/", http.StripPrefix("/api", corsMiddleware(mux)))
+	apiMux.Handle("/", corsMiddleware(mux))
+	handler := http.Handler(apiMux)
 
 	addr := fmt.Sprintf(":%s", port)
 	logger.Info("API server starting", "addr", addr)

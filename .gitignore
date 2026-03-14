@@ -29,3 +29,14 @@ execution_manual_v2.md
 
 # Demo prep (personal notes)
 docs/demo-plan.md
+
+# Firebase
+.firebase/
+firebase-debug.log
+
+# Build artifacts
+infra/infra
+repomix-output.xml
+
+# Playwright
+web/playwright-report/

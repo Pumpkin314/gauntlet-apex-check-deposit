@@ -1,21 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useAdminSSE } from '../components/AdminLayout'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-
-interface TransferEvent {
-  transfer_id: string
-  from_state: string
-  to_state: string
-  trigger: string
-  timestamp?: string
-}
-
-interface TransferCard {
-  id: string
-  state: string
-  events: TransferEvent[]
-  lastUpdate: string
-}
+const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 interface SettlementBatch {
   id: string
@@ -37,20 +23,17 @@ const stateColors: Record<string, { bg: string; border: string; label: string }>
   Analyzing:  { bg: '#fff8e1', border: '#f9a825', label: 'Analyzing' },
   Approved:   { bg: '#e8f5e9', border: '#388e3c', label: 'Approved' },
   FundsPosted:{ bg: '#e8f5e9', border: '#2e7d32', label: 'Funds Posted' },
-  Completed:  { bg: '#e8f5e9', border: '#1b5e20', label: 'Completed' },
+  Completed:  { bg: '#e0f2f1', border: '#00695c', label: 'Completed' },
   Rejected:   { bg: '#ffebee', border: '#c62828', label: 'Rejected' },
   Returned:   { bg: '#ffebee', border: '#b71c1c', label: 'Returned' },
 }
 
 export default function FlowPage() {
-  const [transfers, setTransfers] = useState<Map<string, TransferCard>>(new Map())
-  const [eventLog, setEventLog] = useState<TransferEvent[]>([])
-  const [connected, setConnected] = useState(false)
+  const { transfers, eventLog, connected } = useAdminSSE()
   const [settlement, setSettlement] = useState<SettlementHealth | null>(null)
   const [triggering, setTriggering] = useState(false)
   const [simulatingReturn, setSimulatingReturn] = useState<string | null>(null)
   const [returnMsg, setReturnMsg] = useState<string | null>(null)
-  const eventSourceRef = useRef<EventSource | null>(null)
 
   const fetchSettlement = useCallback(() => {
     fetch(`${API_URL}/health/settlement`)
@@ -89,7 +72,7 @@ export default function FlowPage() {
   const triggerSettlement = async () => {
     setTriggering(true)
     try {
-      await fetch(`${API_URL}/health/settlement/trigger`, { method: 'POST' })
+      await fetch(`${API_URL}/settlement/trigger`, { method: 'POST' })
       fetchSettlement()
     } catch {
       // ignore
@@ -97,54 +80,6 @@ export default function FlowPage() {
       setTriggering(false)
     }
   }
-
-  useEffect(() => {
-    function connect() {
-      const es = new EventSource(`${API_URL}/events/stream`)
-      eventSourceRef.current = es
-
-      es.onopen = () => setConnected(true)
-      es.onerror = () => {
-        setConnected(false)
-        es.close()
-        setTimeout(connect, 3000)
-      }
-
-      es.addEventListener('transfer_update', (e) => {
-        try {
-          const data = JSON.parse(e.data)
-          const event: TransferEvent = {
-            transfer_id: data.transfer_id,
-            from_state: data.from_state || '',
-            to_state: data.to_state || data.state || '',
-            trigger: data.trigger || 'system',
-            timestamp: new Date().toISOString(),
-          }
-
-          setEventLog(prev => [event, ...prev].slice(0, 100))
-
-          setTransfers(prev => {
-            const next = new Map(prev)
-            const existing = next.get(event.transfer_id)
-            next.set(event.transfer_id, {
-              id: event.transfer_id,
-              state: event.to_state,
-              events: [...(existing?.events || []), event],
-              lastUpdate: event.timestamp || new Date().toISOString(),
-            })
-            return next
-          })
-        } catch {
-          // ignore malformed events
-        }
-      })
-    }
-
-    connect()
-    return () => {
-      eventSourceRef.current?.close()
-    }
-  }, [])
 
   const transferList = Array.from(transfers.values()).sort(
     (a, b) => new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime()
@@ -322,7 +257,8 @@ export default function FlowPage() {
                 <span style={{ color: '#fff' }}> → </span>
                 <span style={{
                   color: ev.to_state === 'Rejected' || ev.to_state === 'Returned' ? '#ef5350' :
-                         ev.to_state === 'FundsPosted' || ev.to_state === 'Completed' ? '#66bb6a' : '#fff',
+                         ev.to_state === 'Completed' ? '#4dd0e1' :
+                         ev.to_state === 'FundsPosted' ? '#66bb6a' : '#fff',
                 }}>{ev.to_state}</span>
               </div>
             ))}

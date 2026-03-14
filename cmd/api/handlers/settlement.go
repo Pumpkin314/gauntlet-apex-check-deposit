@@ -20,6 +20,7 @@ type SettlementHandler struct {
 	Engine        *settlement.Engine
 	Batches       *store.SettlementStore
 	SettlementURL string // Settlement Bank stub URL
+	HTTPClient    *http.Client
 	Log           *slog.Logger
 }
 
@@ -162,7 +163,11 @@ func (h *SettlementHandler) submitToSettlementBank(batchID string, fileData []by
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := h.HTTPClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("submit to settlement bank: %w", err)
 	}
@@ -218,7 +223,11 @@ func (h *SettlementHandler) SimulateReturn(w http.ResponseWriter, r *http.Reques
 		httpReq.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	simClient := h.HTTPClient
+	if simClient == nil {
+		simClient = http.DefaultClient
+	}
+	resp, err := simClient.Do(httpReq)
 	if err != nil {
 		h.Log.ErrorContext(ctx, "simulate return: settlement bank call failed",
 			"transfer_id", req.TransferID, "error", err)

@@ -194,6 +194,20 @@ func (h *DepositHandler) CreateDeposit(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, transferToJSON(updated))
 }
 
+// ListDeposits handles GET /deposits — returns the 50 most recent transfers.
+func (h *DepositHandler) ListDeposits(w http.ResponseWriter, r *http.Request) {
+	transfers, err := h.Transfers.ListRecent(r.Context(), 50)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	result := make([]map[string]interface{}, 0, len(transfers))
+	for _, t := range transfers {
+		result = append(result, transferToJSON(t))
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 // GetDeposit handles GET /deposits/{id}.
 func (h *DepositHandler) GetDeposit(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")

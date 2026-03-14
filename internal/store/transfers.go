@@ -110,6 +110,38 @@ func (s *TransferStore) GetByID(ctx context.Context, id string) (*Transfer, erro
 	return t, err
 }
 
+// ListRecent returns the most recent transfers, ordered by updated_at desc, limited to n.
+func (s *TransferStore) ListRecent(ctx context.Context, limit int) ([]*Transfer, error) {
+	const q = `
+		SELECT
+			id, account_id, from_account_id, correspondent_id,
+			amount, currency, type, sub_type, transfer_type, memo, state,
+			review_reason, error_code, contribution_type,
+			vendor_transaction_id, confidence_score,
+			micr_data,
+			front_image_ref, back_image_ref,
+			submitted_at, created_at, updated_at
+		FROM transfers
+		ORDER BY updated_at DESC
+		LIMIT $1`
+
+	rows, err := s.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transfers []*Transfer
+	for rows.Next() {
+		t, err := scanTransferFullRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		transfers = append(transfers, t)
+	}
+	return transfers, rows.Err()
+}
+
 // UpdateState transitions the transfer from `from` to `to` using optimistic locking.
 //
 // SQL:
@@ -380,6 +412,31 @@ func scanTransferFull(row *sql.Row) (*Transfer, error) {
 	var t Transfer
 	var micrRaw []byte
 	err := row.Scan(
+		&t.ID, &t.AccountID, &t.FromAccountID, &t.CorrespondentID,
+		&t.Amount, &t.Currency, &t.Type, &t.SubType, &t.TransferType,
+		&t.Memo, &t.State,
+		&t.ReviewReason, &t.ErrorCode, &t.ContributionType,
+		&t.VendorTransactionID, &t.ConfidenceScore,
+		&micrRaw,
+		&t.FrontImageRef, &t.BackImageRef,
+		&t.SubmittedAt, &t.CreatedAt, &t.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if micrRaw != nil {
+		if err := json.Unmarshal(micrRaw, &t.MICRData); err != nil {
+			return nil, fmt.Errorf("unmarshal micr_data: %w", err)
+		}
+	}
+	return &t, nil
+}
+
+// scanTransferFullRows scans a full transfer from *sql.Rows (for multi-row queries).
+func scanTransferFullRows(rows *sql.Rows) (*Transfer, error) {
+	var t Transfer
+	var micrRaw []byte
+	err := rows.Scan(
 		&t.ID, &t.AccountID, &t.FromAccountID, &t.CorrespondentID,
 		&t.Amount, &t.Currency, &t.Type, &t.SubType, &t.TransferType,
 		&t.Memo, &t.State,
