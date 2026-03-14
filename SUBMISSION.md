@@ -41,15 +41,16 @@ scripts/demo-return.sh          # Completed → return → reversal + fee + noti
 
 ## Deliverables
 
-- [x] README.md
-- [x] /docs/decision_log.md (12 decisions)
-- [x] /docs/architecture.md (Mermaid diagrams)
-- [x] /tests (unit + e2e)
-- [x] /reports (test results)
-- [x] .env.example
-- [x] Vendor Service stub with 7 documented scenarios
-- [x] Demo scripts (4 scripts, all paths)
+- [x] README.md — setup, architecture, observability, API reference
+- [x] /docs/decision_log.md (12 decisions with alternatives)
+- [x] /docs/architecture.md (Mermaid diagrams + Pulumi infra diagram)
+- [x] /tests (94 unit + 29 E2E = 123 tests)
+- [x] /reports (TEST_REPORT.md + Playwright HTML report)
+- [x] .env.example (10 variables)
+- [x] Vendor Service stub with 7 documented scenarios (YAML-configurable)
+- [x] Demo scripts (4 scripts, 77 assertions, all paths)
 - [x] Short write-up (see below)
+- [x] [VERIFICATION.md](VERIFICATION.md) — full spec requirement traceability matrix
 
 ## Short Write-Up
 

@@ -15,10 +15,14 @@ type HTTPVendorClient struct {
 }
 
 // NewHTTPClient creates an HTTPVendorClient targeting the given base URL (e.g. "http://localhost:8081").
-func NewHTTPClient(baseURL string) *HTTPVendorClient {
+// If client is nil, a default http.Client is used.
+func NewHTTPClient(baseURL string, client *http.Client) *HTTPVendorClient {
+	if client == nil {
+		client = &http.Client{}
+	}
 	return &HTTPVendorClient{
 		baseURL:    baseURL,
-		httpClient: &http.Client{},
+		httpClient: client,
 	}
 }
 

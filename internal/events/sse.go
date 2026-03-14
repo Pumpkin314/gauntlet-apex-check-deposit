@@ -115,6 +115,8 @@ func (b *Broadcaster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
+	// Write an initial SSE comment to force Cloud Run's proxy to flush headers.
+	fmt.Fprintf(w, ": connected\n\n")
 	flusher.Flush()
 
 	ch := b.Subscribe()

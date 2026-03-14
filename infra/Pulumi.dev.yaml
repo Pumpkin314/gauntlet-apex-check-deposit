@@ -5,8 +5,7 @@ config:
   apex-check-deposit:minInstances: "0"
   apex-check-deposit:sqlBackups: "false"
   apex-check-deposit:enableSecrets: "false"
-  apex-check-deposit:apiTag: v5
-  apex-check-deposit:vssTag: v4
-  apex-check-deposit:settlementTag: v3
-  apex-check-deposit:webTag: v1
+  apex-check-deposit:apiTag: v8
+  apex-check-deposit:vssTag: v8
+  apex-check-deposit:settlementTag: v8
 encryptionsalt: v1:hYMccntka+o=:v1:yateHQXG4R7XzSMt:NQj1mJHxIjqsCE2HeyuNPWekLyzhLg==

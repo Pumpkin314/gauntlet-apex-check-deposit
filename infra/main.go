@@ -5,6 +5,7 @@ import (
 
 	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/artifactregistry"
 	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/cloudrunv2"
+	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/firebase"
 	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/secretmanager"
 	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/sql"
 	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/storage"
@@ -58,11 +59,6 @@ func run(ctx *pulumi.Context) error {
 	if settlementTag == "" {
 		settlementTag = "latest"
 	}
-	webTag := cfg.Get("webTag")
-	if webTag == "" {
-		webTag = "latest"
-	}
-
 	registryBase := fmt.Sprintf("%s-docker.pkg.dev/%s/apex-check-deposit", region, project)
 
 	// ── Artifact Registry ────────────────────────────────────────────────────
@@ -326,34 +322,22 @@ func run(ctx *pulumi.Context) error {
 	if err != nil {
 		return err
 	}
-	// ── Cloud Run: Web frontend ────────────────────────────────────────────
-	// Frontend depends on API URI (injected at container startup via env var)
-	webService, err := cloudrunv2.NewService(ctx, "web", &cloudrunv2.ServiceArgs{
+	// ── Firebase Hosting (replaces Cloud Run web frontend) ──────────────────
+	hostingSite, err := firebase.NewHostingSite(ctx, "apex-web", &firebase.HostingSiteArgs{
+		Project: pulumi.String(project),
+		SiteId:  pulumi.Sprintf("apex-check-deposit-%s", ctx.Stack()),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Grant Firebase default SA permission to invoke the API Cloud Run service
+	_, err = cloudrunv2.NewServiceIamMember(ctx, "api-firebase-invoker", &cloudrunv2.ServiceIamMemberArgs{
 		Project:  pulumi.String(project),
 		Location: pulumi.String(region),
-		Ingress:  pulumi.String("INGRESS_TRAFFIC_ALL"),
-		Template: &cloudrunv2.ServiceTemplateArgs{
-			Scaling: &cloudrunv2.ServiceTemplateScalingArgs{
-				MinInstanceCount: pulumi.Int(minInstances),
-				MaxInstanceCount: pulumi.Int(5),
-			},
-			Containers: cloudrunv2.ServiceTemplateContainerArray{
-				&cloudrunv2.ServiceTemplateContainerArgs{
-					Image: pulumi.String(fmt.Sprintf("%s/web:%s", registryBase, webTag)),
-					Ports: cloudrunv2.ServiceTemplateContainerPortArray{
-						&cloudrunv2.ServiceTemplateContainerPortArgs{
-							ContainerPort: pulumi.Int(8080),
-						},
-					},
-					Envs: cloudrunv2.ServiceTemplateContainerEnvArray{
-						&cloudrunv2.ServiceTemplateContainerEnvArgs{
-							Name:  pulumi.String("VITE_API_URL"),
-							Value: apiService.Uri,
-						},
-					},
-				},
-			},
-		},
+		Name:     apiService.Name,
+		Role:     pulumi.String("roles/run.invoker"),
+		Member:   pulumi.Sprintf("serviceAccount:%s@appspot.gserviceaccount.com", project),
 	})
 	if err != nil {
 		return err
@@ -361,9 +345,10 @@ func run(ctx *pulumi.Context) error {
 
 	// ── Outputs ──────────────────────────────────────────────────────────────
 	ctx.Export("apiUrl", apiService.Uri)
+	ctx.Export("apiServiceName", apiService.Name)
 	ctx.Export("vssUrl", vssService.Uri)
 	ctx.Export("settlementUrl", settlementService.Uri)
-	ctx.Export("webUrl", webService.Uri)
+	ctx.Export("webUrl", hostingSite.DefaultUrl)
 	ctx.Export("dbConnectionName", sqlInstance.ConnectionName)
 
 	return nil
