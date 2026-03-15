@@ -6,7 +6,6 @@ import (
 	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/artifactregistry"
 	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/cloudrunv2"
 	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/firebase"
-	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/organizations"
 	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/secretmanager"
 	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/sql"
 	"github.com/pulumi/pulumi-gcp/sdk/v7/go/gcp/storage"
@@ -332,47 +331,12 @@ func run(ctx *pulumi.Context) error {
 		return err
 	}
 
-	// Look up project number for service account references
-	projectInfo, err := organizations.LookupProject(ctx, &organizations.LookupProjectArgs{
-		ProjectId: &project,
-	})
-	if err != nil {
-		return err
-	}
-	projectNumber := projectInfo.Number
-
-	// Grant default compute SA permission to invoke Cloud Run services
-	// (Firebase Hosting rewrites use this SA to proxy requests)
-	for _, svc := range []struct {
-		name    string
-		service pulumi.StringInput
-	}{
-		{"api", apiService.Name},
-		{"vss", vssService.Name},
-		{"settlement", settlementService.Name},
-	} {
-		_, err = cloudrunv2.NewServiceIamMember(ctx, fmt.Sprintf("%s-compute-invoker", svc.name), &cloudrunv2.ServiceIamMemberArgs{
-			Project:  pulumi.String(project),
-			Location: pulumi.String(region),
-			Name:     svc.service,
-			Role:     pulumi.String("roles/run.invoker"),
-			Member:   pulumi.Sprintf("serviceAccount:%s-compute@developer.gserviceaccount.com", projectNumber),
-		})
-		if err != nil {
-			return err
-		}
-
-		_, err = cloudrunv2.NewServiceIamMember(ctx, fmt.Sprintf("%s-firebase-invoker", svc.name), &cloudrunv2.ServiceIamMemberArgs{
-			Project:  pulumi.String(project),
-			Location: pulumi.String(region),
-			Name:     svc.service,
-			Role:     pulumi.String("roles/run.invoker"),
-			Member:   pulumi.Sprintf("serviceAccount:service-%s@gcp-sa-firebase.iam.gserviceaccount.com", projectNumber),
-		})
-		if err != nil {
-			return err
-		}
-	}
+	// NOTE: Cloud Run IAM (roles/run.invoker) is managed manually, not by Pulumi.
+	// Firebase Hosting rewrites require allUsers as invoker, which must be set
+	// before the org policy blocks it. Pulumi would remove manually-set bindings.
+	// After first deploy, run:
+	//   gcloud run services add-iam-policy-binding <service> \
+	//     --region us-central1 --member="allUsers" --role="roles/run.invoker"
 
 	// ── Outputs ──────────────────────────────────────────────────────────────
 	ctx.Export("apiUrl", apiService.Uri)
