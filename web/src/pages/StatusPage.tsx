@@ -160,6 +160,12 @@ export default function StatusPage() {
             </dd>
           </dl>
 
+          <div style={{ marginBottom: '1rem' }}>
+            <Link to="/deposit" style={{ color: '#1a1a2e', fontSize: '0.9rem' }}>
+              ← New deposit
+            </Link>
+          </div>
+
           {transfer.state === 'Rejected' && (
             <>
               <DepositError

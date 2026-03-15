@@ -29,7 +29,9 @@ type SettlementHandler struct {
 func (h *SettlementHandler) Trigger(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	result, err := h.Engine.Trigger(ctx, time.Now())
+	// Use tomorrow's date so all FundsPosted deposits are eligible,
+	// regardless of when they were submitted relative to today's cutoff.
+	result, err := h.Engine.Trigger(ctx, time.Now().Add(24*time.Hour))
 	if err != nil {
 		h.Log.ErrorContext(ctx, "settlement trigger failed", "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "settlement trigger failed"})
