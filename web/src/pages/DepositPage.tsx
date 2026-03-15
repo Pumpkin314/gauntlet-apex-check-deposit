@@ -73,7 +73,6 @@ export default function DepositPage({ accountCode }: Props) {
       .catch(() => {})
   }, [scenarioKey])
 
-  const selectedScenario = SCENARIOS.find(s => s.key === scenarioKey) ?? SCENARIOS[0]
   const needsAmount = mode === 'upload' || AMOUNT_SCENARIOS.has(scenarioKey)
 
   function resetForm() {
