@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { apiFetch, getAuthToken, BASE_URL } from '../api/client'
 import DepositError from '../components/DepositError'
 
-// Demo scenarios mapped to seed accounts whose UUIDs the VSS stub resolves to
-// the matching scenario in test-scenarios/scenarios.yaml
+// Demo scenarios — decoupled from account. The scenario field is sent to the API
+// and forwarded as X-Scenario header to the VSS stub.
 const SCENARIOS = [
-  { key: 'clean_pass', label: 'Clean Check', accountCode: 'ALPHA-001' },
-  { key: 'iqa_fail_blur', label: 'IQA Blur', accountCode: 'ALPHA-002' },
-  { key: 'iqa_fail_glare', label: 'IQA Glare', accountCode: 'ALPHA-003' },
-  { key: 'duplicate_detected', label: 'Duplicate Check', accountCode: 'BETA-001' },
-  { key: 'micr_failure', label: 'MICR Failure', accountCode: 'ALPHA-004' },
+  { key: 'clean_pass', label: 'Clean Check' },
+  { key: 'iqa_fail_blur', label: 'IQA Blur' },
+  { key: 'iqa_fail_glare', label: 'IQA Glare' },
+  { key: 'duplicate_detected', label: 'Duplicate Check' },
+  { key: 'micr_failure', label: 'MICR Failure' },
 ] as const
 
 // Scenarios where the user enters a custom amount
@@ -30,7 +30,11 @@ interface ExistingTransfer {
   created_at: string
 }
 
-export default function DepositPage() {
+interface Props {
+  accountCode: string
+}
+
+export default function DepositPage({ accountCode }: Props) {
   const navigate = useNavigate()
 
   // Mode: 'upload' (real images) or 'demo' (scenario-based)
@@ -98,7 +102,8 @@ export default function DepositPage() {
       if (mode === 'upload') {
         // Multipart form upload with real images
         const formData = new FormData()
-        formData.append('account_code', 'ALPHA-001')
+        formData.append('account_code', accountCode)
+        formData.append('scenario', 'clean_pass')
         formData.append('amount', amount)
         if (frontImage) formData.append('front_image', frontImage)
         if (backImage) formData.append('back_image', backImage)
@@ -126,7 +131,8 @@ export default function DepositPage() {
         transfer = await apiFetch<typeof transfer>('/deposits', {
           method: 'POST',
           body: JSON.stringify({
-            account_code: selectedScenario.accountCode,
+            account_code: accountCode,
+            scenario: scenarioKey,
             amount: depositAmount,
           }),
         })

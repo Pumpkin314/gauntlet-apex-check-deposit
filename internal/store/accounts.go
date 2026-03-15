@@ -59,6 +59,30 @@ func (s *AccountStore) GetOmnibusForCorrespondent(ctx context.Context, correspon
 	return id, nil
 }
 
+// ListInvestorAccounts returns all non-OMNIBUS, non-FEE accounts (investor accounts).
+func (s *AccountStore) ListInvestorAccounts(ctx context.Context) ([]*Account, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, code, correspondent_id, type, status FROM accounts WHERE type NOT IN ('OMNIBUS', 'FEE') ORDER BY code`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var accounts []*Account
+	for rows.Next() {
+		a := &Account{}
+		var corrID sql.NullString
+		if err := rows.Scan(&a.ID, &a.Code, &corrID, &a.Type, &a.Status); err != nil {
+			return nil, err
+		}
+		if corrID.Valid {
+			id, _ := uuid.Parse(corrID.String)
+			a.CorrespondentID = &id
+		}
+		accounts = append(accounts, a)
+	}
+	return accounts, rows.Err()
+}
+
 // SetStatus updates the status of an account (e.g. 'ACTIVE' → 'COLLECTIONS').
 func (s *AccountStore) SetStatus(ctx context.Context, id uuid.UUID, status string) error {
 	_, err := s.db.ExecContext(ctx,

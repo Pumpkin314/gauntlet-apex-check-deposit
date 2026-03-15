@@ -181,6 +181,10 @@ func main() {
 	mux.HandleFunc("GET /deposits/{id}/events", depositHandler.GetDepositEvents)
 	mux.HandleFunc("GET /deposits/{id}/images/{side}", depositHandler.GetDepositImage)
 
+	// Accounts
+	mux.HandleFunc("GET /accounts", depositHandler.ListAccounts)
+	mux.HandleFunc("GET /accounts/{code}", depositHandler.GetAccount)
+
 	// Returns (settlement bank webhook — protected by bearer token)
 	mux.HandleFunc("POST /returns", middleware.SettlementAuth(returnHandler.ProcessReturn))
 
