@@ -15,6 +15,7 @@ type ValidateRequest struct {
 	Amount     float64 `json:"amount"`
 	FrontImage string  `json:"front_image"`
 	BackImage  string  `json:"back_image"`
+	Scenario   string  `json:"-"` // forwarded via X-Scenario header, not in JSON body
 }
 
 // ValidateResponse is the result returned by the Vendor Service after validation.

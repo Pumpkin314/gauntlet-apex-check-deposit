@@ -28,12 +28,16 @@ const stateColors: Record<string, { bg: string; border: string; label: string }>
   Returned:   { bg: '#ffebee', border: '#b71c1c', label: 'Returned' },
 }
 
+const TERMINAL_STATES = new Set(['Rejected', 'Returned'])
+
 export default function FlowPage() {
   const { transfers, eventLog, connected } = useAdminSSE()
   const [settlement, setSettlement] = useState<SettlementHealth | null>(null)
   const [triggering, setTriggering] = useState(false)
   const [simulatingReturn, setSimulatingReturn] = useState<string | null>(null)
   const [returnMsg, setReturnMsg] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [stateFilter, setStateFilter] = useState<string>('active')
 
   const fetchSettlement = useCallback(() => {
     fetch(`${API_URL}/health/settlement`)
@@ -81,9 +85,16 @@ export default function FlowPage() {
     }
   }
 
-  const transferList = Array.from(transfers.values()).sort(
-    (a, b) => new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime()
-  )
+  const transferList = Array.from(transfers.values())
+    .filter(t => {
+      // State filter
+      if (stateFilter === 'active' && TERMINAL_STATES.has(t.state)) return false
+      if (stateFilter !== 'active' && stateFilter !== 'all' && t.state !== stateFilter) return false
+      // Search by ID
+      if (searchTerm && !t.id.toLowerCase().includes(searchTerm.toLowerCase())) return false
+      return true
+    })
+    .sort((a, b) => new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime())
 
   return (
     <div>
@@ -162,7 +173,35 @@ export default function FlowPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
         {/* Transfer Cards */}
         <div>
-          <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Active Transfers</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Transfers</h2>
+            <input
+              type="text"
+              placeholder="Search by ID..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{
+                padding: '0.3rem 0.5rem', borderRadius: '4px',
+                border: '1px solid #ccc', fontSize: '0.8rem', width: '140px',
+              }}
+            />
+            <select
+              value={stateFilter}
+              onChange={e => setStateFilter(e.target.value)}
+              style={{
+                padding: '0.3rem 0.5rem', borderRadius: '4px',
+                border: '1px solid #ccc', fontSize: '0.8rem',
+              }}
+            >
+              <option value="active">Active Only</option>
+              <option value="all">All States</option>
+              <option value="FundsPosted">Funds Posted</option>
+              <option value="Completed">Completed</option>
+              <option value="Analyzing">Analyzing</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Returned">Returned</option>
+            </select>
+          </div>
           {returnMsg && (
             <div style={{
               marginBottom: '0.5rem',
@@ -202,7 +241,7 @@ export default function FlowPage() {
                     }}>{colors.label}</span>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.25rem' }}>
-                    {t.events.length} transitions | Last: {new Date(t.lastUpdate).toLocaleTimeString()}
+                    {new Date(t.lastUpdate).toLocaleString()}
                   </div>
                   {canSimulateReturn && (
                     <button

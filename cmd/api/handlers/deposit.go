@@ -28,6 +28,7 @@ type DepositHandler struct {
 type depositRequest struct {
 	AccountCode string  `json:"account_code"`
 	Amount      float64 `json:"amount"`
+	Scenario    string  `json:"scenario"` // optional VSS scenario override
 }
 
 // CreateDeposit handles POST /deposits.
@@ -45,6 +46,7 @@ func (h *DepositHandler) CreateDeposit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		req.AccountCode = r.FormValue("account_code")
+		req.Scenario = r.FormValue("scenario")
 		amt := r.FormValue("amount")
 		if _, err := fmt.Sscanf(amt, "%f", &req.Amount); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid amount"})
@@ -159,6 +161,12 @@ func (h *DepositHandler) CreateDeposit(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
+	// Resolve scenario: body field > X-Scenario header > empty (VSS uses account lookup)
+	scenario := req.Scenario
+	if scenario == "" {
+		scenario = r.Header.Get("X-Scenario")
+	}
+
 	// Run orchestrator flow
 	td := orchestrator.TransferDetail{
 		TransferID:       transfer.ID,
@@ -171,6 +179,7 @@ func (h *DepositHandler) CreateDeposit(w http.ResponseWriter, r *http.Request) {
 		RulesConfig:      rulesConfig,
 		FrontImageRef:    frontImageRef,
 		BackImageRef:     backImageRef,
+		Scenario:         scenario,
 	}
 
 	finalState, err := orchestrator.ProcessDeposit(ctx, h.OrchestratorDeps, td)
@@ -194,9 +203,17 @@ func (h *DepositHandler) CreateDeposit(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, transferToJSON(updated))
 }
 
-// ListDeposits handles GET /deposits — returns the 50 most recent transfers.
+// ListDeposits handles GET /deposits — returns transfers.
+// If ?account_id= is provided, filters by that account.
 func (h *DepositHandler) ListDeposits(w http.ResponseWriter, r *http.Request) {
-	transfers, err := h.Transfers.ListRecent(r.Context(), 50)
+	var transfers []*store.Transfer
+	var err error
+
+	if accountID := r.URL.Query().Get("account_id"); accountID != "" {
+		transfers, err = h.Transfers.ListByAccountID(r.Context(), accountID)
+	} else {
+		transfers, err = h.Transfers.ListRecent(r.Context(), 50)
+	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -205,6 +222,61 @@ func (h *DepositHandler) ListDeposits(w http.ResponseWriter, r *http.Request) {
 	for _, t := range transfers {
 		result = append(result, transferToJSON(t))
 	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+// ListAccounts handles GET /accounts — returns investor accounts for login dropdown.
+func (h *DepositHandler) ListAccounts(w http.ResponseWriter, r *http.Request) {
+	accounts, err := h.Accounts.ListInvestorAccounts(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	result := make([]map[string]interface{}, 0, len(accounts))
+	for _, a := range accounts {
+		entry := map[string]interface{}{
+			"id":   a.ID,
+			"code": a.Code,
+			"type": a.Type,
+		}
+		if a.CorrespondentID != nil {
+			entry["correspondent_id"] = *a.CorrespondentID
+		}
+		result = append(result, entry)
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+// GetAccount handles GET /accounts/{code} — returns account details + balance.
+func (h *DepositHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
+	code := r.PathValue("code")
+	if code == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing account code"})
+		return
+	}
+
+	acct, err := h.Accounts.GetByCode(r.Context(), code)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "account not found"})
+		return
+	}
+
+	result := map[string]interface{}{
+		"id":     acct.ID,
+		"code":   acct.Code,
+		"type":   acct.Type,
+		"status": acct.Status,
+	}
+	if acct.CorrespondentID != nil {
+		result["correspondent_id"] = *acct.CorrespondentID
+	}
+
+	// Include balance from ledger
+	balance, err := h.OrchestratorDeps.Ledger.GetBalance(r.Context(), acct.ID)
+	if err == nil {
+		result["balance"] = balance
+	}
+
 	writeJSON(w, http.StatusOK, result)
 }
 

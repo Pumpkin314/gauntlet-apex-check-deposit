@@ -142,6 +142,38 @@ func (s *TransferStore) ListRecent(ctx context.Context, limit int) ([]*Transfer,
 	return transfers, rows.Err()
 }
 
+// ListByAccountID returns transfers for a given account, ordered by created_at desc.
+func (s *TransferStore) ListByAccountID(ctx context.Context, accountID string) ([]*Transfer, error) {
+	const q = `
+		SELECT
+			id, account_id, from_account_id, correspondent_id,
+			amount, currency, type, sub_type, transfer_type, memo, state,
+			review_reason, error_code, contribution_type,
+			vendor_transaction_id, confidence_score,
+			micr_data,
+			front_image_ref, back_image_ref,
+			submitted_at, created_at, updated_at
+		FROM transfers
+		WHERE account_id = $1
+		ORDER BY created_at DESC`
+
+	rows, err := s.db.QueryContext(ctx, q, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transfers []*Transfer
+	for rows.Next() {
+		t, err := scanTransferFullRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		transfers = append(transfers, t)
+	}
+	return transfers, rows.Err()
+}
+
 // UpdateState transitions the transfer from `from` to `to` using optimistic locking.
 //
 // SQL:

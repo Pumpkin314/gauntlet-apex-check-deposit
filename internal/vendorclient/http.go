@@ -38,6 +38,9 @@ func (c *HTTPVendorClient) Validate(ctx context.Context, req ValidateRequest) (*
 		return nil, fmt.Errorf("vendorclient: build request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	if req.Scenario != "" {
+		httpReq.Header.Set("X-Scenario", req.Scenario)
+	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {

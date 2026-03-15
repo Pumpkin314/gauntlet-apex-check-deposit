@@ -37,6 +37,7 @@ type TransferDetail struct {
 	RulesConfig     funding.RulesConfig
 	FrontImageRef   string
 	BackImageRef    string
+	Scenario        string // VSS scenario override (forwarded as X-Scenario header)
 }
 
 // ProcessDeposit drives a transfer from Requested through FundsPosted (happy path).
@@ -65,6 +66,7 @@ func ProcessDeposit(ctx context.Context, d Deps, td TransferDetail) (string, err
 		Amount:     td.Amount,
 		FrontImage: td.FrontImageRef,
 		BackImage:  td.BackImageRef,
+		Scenario:   td.Scenario,
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "VSS call failed", "error", err)
