@@ -37,7 +37,7 @@ IDEM_KEY="demo-blur-$(date +%s%N)"
 RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
-  -d '{"account_code":"ALPHA-002","amount":500.00}')
+  -d '{"account_code":"ALPHA-002","amount":500.00,"scenario":"iqa_fail_blur"}')
 
 STATE=$(json_field "$RESULT" "state")
 ERROR_CODE=$(json_field "$RESULT" "error_code")
@@ -60,7 +60,7 @@ IDEM_KEY="demo-glare-$(date +%s%N)"
 RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
-  -d '{"account_code":"ALPHA-003","amount":500.00}')
+  -d '{"account_code":"ALPHA-003","amount":500.00,"scenario":"iqa_fail_glare"}')
 
 STATE=$(json_field "$RESULT" "state")
 ERROR_CODE=$(json_field "$RESULT" "error_code")
@@ -78,7 +78,7 @@ IDEM_KEY="demo-dup-$(date +%s%N)"
 RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
-  -d '{"account_code":"BETA-001","amount":500.00}')
+  -d '{"account_code":"BETA-001","amount":500.00,"scenario":"duplicate_detected"}')
 
 STATE=$(json_field "$RESULT" "state")
 ERROR_CODE=$(json_field "$RESULT" "error_code")
@@ -96,7 +96,7 @@ IDEM_KEY="demo-overlimit-$(date +%s%N)"
 RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
-  -d '{"account_code":"ALPHA-001","amount":5001.00}')
+  -d '{"account_code":"ALPHA-001","amount":5001.00,"scenario":"clean_pass"}')
 
 STATE=$(json_field "$RESULT" "state")
 ERROR_CODE=$(json_field "$RESULT" "error_code")

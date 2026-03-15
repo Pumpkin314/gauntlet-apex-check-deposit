@@ -14,7 +14,7 @@ async function submitDeposit(
       'Content-Type': 'application/json',
       'Idempotency-Key': `e2e-return-${accountCode}-${Date.now()}`,
     },
-    data: { account_code: accountCode, amount },
+    data: { account_code: accountCode, amount, scenario: 'clean_pass' },
   })
   expect(res.ok()).toBeTruthy()
   return res.json()
@@ -135,15 +135,16 @@ test.describe('Return Flow E2E', () => {
     // Trigger return
     await simulateReturn(page.request, transfer.id)
 
-    // Wait for SSE to deliver the event
-    await page.waitForTimeout(3000)
-
-    // Verify the transfer shows as Returned in the event stream or via API
+    // Verify the transfer is Returned via API
     const getRes = await page.request.get(`${API_URL}/deposits/${transfer.id}`)
     const updated = await getRes.json()
     expect(updated.state).toBe('Returned')
 
-    // The event stream should show Returned
+    // Switch filter to "All States" to see Returned transfers
+    await page.locator('select').last().selectOption('Returned')
+    await page.waitForTimeout(2000)
+
+    // The transfer card should show Returned
     await expect(page.getByText('Returned').first()).toBeVisible({ timeout: 5000 })
   })
 

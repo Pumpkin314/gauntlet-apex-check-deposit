@@ -55,7 +55,7 @@ IDEM_KEY="demo-return-deposit-$(date +%s%N)"
 RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
-  -d '{"account_code":"ALPHA-001","amount":500.00}')
+  -d '{"account_code":"ALPHA-001","amount":500.00,"scenario":"clean_pass"}')
 
 TRANSFER_ID=$(json_field "$RESULT" "id")
 STATE=$(json_field "$RESULT" "state")
@@ -195,7 +195,7 @@ IDEM_KEY2="demo-return-presettl-$(date +%s%N)"
 RESULT2=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY2" \
-  -d '{"account_code":"ALPHA-001","amount":250.00}')
+  -d '{"account_code":"ALPHA-001","amount":250.00,"scenario":"clean_pass"}')
 
 TRANSFER_ID2=$(json_field "$RESULT2" "id")
 STATE2=$(json_field "$RESULT2" "state")
@@ -221,7 +221,7 @@ IDEM_KEY3="demo-return-invalid-$(date +%s%N)"
 RESULT3=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY3" \
-  -d '{"account_code":"ALPHA-002","amount":500.00}')
+  -d '{"account_code":"ALPHA-002","amount":500.00,"scenario":"iqa_fail_blur"}')
 REJECTED_ID=$(json_field "$RESULT3" "id")
 REJECTED_STATE=$(json_field "$RESULT3" "state")
 check "$REJECTED_STATE" "Rejected" "Setup: transfer is Rejected"

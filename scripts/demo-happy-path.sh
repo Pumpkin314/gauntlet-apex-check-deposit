@@ -34,7 +34,7 @@ echo "2. Submit deposit (ALPHA-001, \$500)"
 RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
-  -d '{"account_code":"ALPHA-001","amount":500.00}')
+  -d '{"account_code":"ALPHA-001","amount":500.00,"scenario":"clean_pass"}')
 
 TRANSFER_ID=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 STATE=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['state'])")
@@ -112,7 +112,7 @@ echo "7. Idempotency test"
 IDEM_RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
-  -d '{"account_code":"ALPHA-001","amount":500.00}')
+  -d '{"account_code":"ALPHA-001","amount":500.00,"scenario":"clean_pass"}')
 IDEM_ID=$(echo "$IDEM_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 check "$IDEM_ID" "$TRANSFER_ID" "Same Idempotency-Key returns same transfer ID"
 

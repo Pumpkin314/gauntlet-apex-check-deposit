@@ -40,7 +40,7 @@ IDEM_KEY="demo-review-micr-$(date +%s%N)"
 RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
-  -d '{"account_code":"ALPHA-004","amount":750.00}')
+  -d '{"account_code":"ALPHA-004","amount":750.00,"scenario":"micr_failure"}')
 
 MICR_ID=$(json_field "$RESULT" "id")
 STATE=$(json_field "$RESULT" "state")
@@ -56,7 +56,7 @@ IDEM_KEY="demo-review-amt-$(date +%s%N)"
 RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
-  -d '{"account_code":"ALPHA-005","amount":500.00}')
+  -d '{"account_code":"ALPHA-005","amount":500.00,"scenario":"amount_mismatch"}')
 
 AMT_ID=$(json_field "$RESULT" "id")
 STATE=$(json_field "$RESULT" "state")
@@ -144,7 +144,7 @@ IDEM_KEY="demo-overlimit-$(date +%s%N)"
 OL_RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
-  -d '{"account_code":"ALPHA-001","amount":5001.00}')
+  -d '{"account_code":"ALPHA-001","amount":5001.00,"scenario":"clean_pass"}')
 OL_STATE=$(json_field "$OL_RESULT" "state")
 OL_CODE=$(json_field "$OL_RESULT" "error_code")
 check "$OL_STATE" "Rejected" "Over-limit: state = Rejected"
@@ -157,7 +157,7 @@ IDEM_KEY="demo-ira-alpha-$(date +%s%N)"
 IRA_RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
-  -d '{"account_code":"ALPHA-IRA","amount":500.00}')
+  -d '{"account_code":"ALPHA-IRA","amount":500.00,"scenario":"ira_clean_pass"}')
 IRA_STATE=$(json_field "$IRA_RESULT" "state")
 IRA_CT=$(json_field "$IRA_RESULT" "contribution_type")
 echo "  ALPHA-IRA: state=$IRA_STATE contribution_type=$IRA_CT"

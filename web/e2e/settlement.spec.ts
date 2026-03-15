@@ -13,7 +13,7 @@ async function submitDeposit(
       'Content-Type': 'application/json',
       'Idempotency-Key': `e2e-settlement-${accountCode}-${Date.now()}`,
     },
-    data: { account_code: accountCode, amount },
+    data: { account_code: accountCode, amount, scenario: 'clean_pass' },
   })
   expect(res.ok()).toBeTruthy()
   return res.json()
