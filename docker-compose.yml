@@ -29,6 +29,8 @@ services:
       JWT_SECRET: dev-secret-change-in-production
       SETTLEMENT_BANK_TOKEN: dev-settlement-token
       SCENARIOS_PATH: /scenarios/scenarios.yaml
+    volumes:
+      - check-images:/data/images
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,3 +85,4 @@ services:
 
 volumes:
   pgdata:
+  check-images:

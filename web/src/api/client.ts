@@ -1,9 +1,13 @@
-const BASE_URL = import.meta.env.VITE_API_URL || '/api'
+export const BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 let authToken = ''
 
 export function setAuthToken(token: string) {
   authToken = token
+}
+
+export function getAuthToken(): string {
+  return authToken
 }
 
 function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
