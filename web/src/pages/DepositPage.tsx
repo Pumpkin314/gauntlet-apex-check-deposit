@@ -14,7 +14,7 @@ const SCENARIOS = [
 ] as const
 
 // Scenarios where the user enters a custom amount
-const AMOUNT_SCENARIOS = new Set(['clean_pass'])
+const AMOUNT_SCENARIOS = new Set(['clean_pass', 'micr_failure'])
 
 interface RejectedTransfer {
   id: string
