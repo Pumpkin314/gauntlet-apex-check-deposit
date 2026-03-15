@@ -10,13 +10,14 @@ async function submitDeposit(
   request: import('@playwright/test').APIRequestContext,
   accountCode: string,
   amount: number,
+  scenario?: string,
 ) {
   const res = await request.post(`${API_URL}/deposits`, {
     headers: {
       'Content-Type': 'application/json',
       'Idempotency-Key': `e2e-${accountCode}-${Date.now()}`,
     },
-    data: { account_code: accountCode, amount },
+    data: { account_code: accountCode, amount, ...(scenario ? { scenario } : {}) },
   })
   expect(res.ok()).toBeTruthy()
   return res.json()
@@ -24,7 +25,7 @@ async function submitDeposit(
 
 test.describe('Rejection Paths E2E', () => {
   test('ALPHA-002 → blur error message displayed', async ({ page }) => {
-    const transfer = await submitDeposit(page.request, 'ALPHA-002', 500)
+    const transfer = await submitDeposit(page.request, 'ALPHA-001', 500, 'iqa_fail_blur')
     expect(transfer.state).toBe('Rejected')
     expect(transfer.error_code).toBe('VSS_IQA_BLUR')
 
@@ -34,7 +35,7 @@ test.describe('Rejection Paths E2E', () => {
   })
 
   test('ALPHA-003 → glare error message displayed', async ({ page }) => {
-    const transfer = await submitDeposit(page.request, 'ALPHA-003', 500)
+    const transfer = await submitDeposit(page.request, 'ALPHA-001', 500, 'iqa_fail_glare')
     expect(transfer.state).toBe('Rejected')
     expect(transfer.error_code).toBe('VSS_IQA_GLARE')
 
@@ -44,7 +45,7 @@ test.describe('Rejection Paths E2E', () => {
   })
 
   test('BETA-001 → duplicate error displayed', async ({ page }) => {
-    const transfer = await submitDeposit(page.request, 'BETA-001', 500)
+    const transfer = await submitDeposit(page.request, 'BETA-001', 500, 'duplicate_detected')
     expect(transfer.state).toBe('Rejected')
     expect(transfer.error_code).toBe('VSS_DUPLICATE_DETECTED')
 
@@ -54,7 +55,7 @@ test.describe('Rejection Paths E2E', () => {
   })
 
   test('over-limit $5001 → FS rejection displayed', async ({ page }) => {
-    const transfer = await submitDeposit(page.request, 'ALPHA-001', 5001)
+    const transfer = await submitDeposit(page.request, 'ALPHA-001', 5001, 'clean_pass')
     expect(transfer.state).toBe('Rejected')
     expect(transfer.error_code).toBe('FS_OVER_DEPOSIT_LIMIT')
 
@@ -64,7 +65,7 @@ test.describe('Rejection Paths E2E', () => {
   })
 
   test('rejected transfers produce no ledger entries', async ({ page }) => {
-    const transfer = await submitDeposit(page.request, 'ALPHA-002', 500)
+    const transfer = await submitDeposit(page.request, 'ALPHA-001', 500, 'iqa_fail_blur')
     expect(transfer.state).toBe('Rejected')
 
     // Check events — no ledger_posted

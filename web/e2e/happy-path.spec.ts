@@ -4,6 +4,19 @@ const API_URL = 'http://localhost:8080'
 
 test.describe('Happy Path E2E', () => {
   test('submit deposit → status shows FundsPosted', async ({ page }) => {
+    // Login as Alice Johnson (ALPHA-001)
+    await page.goto('/login')
+    await expect(page.locator('h1')).toContainText('Investor Login')
+
+    const accountSelect = page.locator('#account-select')
+    await expect(accountSelect).toBeVisible()
+    await accountSelect.selectOption('ALPHA-001')
+    await page.locator('button[type="submit"]').click()
+
+    // Should redirect to dashboard
+    await page.waitForURL(/\/dashboard/)
+    await expect(page.locator('text=Deposit a Check')).toBeVisible({ timeout: 5000 })
+
     // Navigate to deposit page
     await page.goto('/deposit')
     await expect(page.locator('h1')).toContainText('Deposit Check')
@@ -54,7 +67,7 @@ test.describe('Happy Path E2E', () => {
         'Content-Type': 'application/json',
         'Idempotency-Key': idempKey,
       },
-      data: { account_code: 'ALPHA-001', amount: 100 },
+      data: { account_code: 'ALPHA-001', amount: 100, scenario: 'clean_pass' },
     })
     expect(res.ok()).toBeTruthy()
 

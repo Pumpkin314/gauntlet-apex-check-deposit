@@ -9,13 +9,14 @@ async function submitDeposit(
   request: import('@playwright/test').APIRequestContext,
   accountCode: string,
   amount: number,
+  scenario = 'clean_pass',
 ) {
   const res = await request.post(`${API_URL}/deposits`, {
     headers: {
       'Content-Type': 'application/json',
       'Idempotency-Key': `e2e-review-${accountCode}-${Date.now()}`,
     },
-    data: { account_code: accountCode, amount },
+    data: { account_code: accountCode, amount, scenario },
   })
   expect(res.ok()).toBeTruthy()
   return res.json()
@@ -46,7 +47,7 @@ async function postAction(
 
 test.describe('Manual Review E2E', () => {
   test('ALPHA-004 submission → visible in operator queue', async ({ page }) => {
-    const transfer = await submitDeposit(page.request, 'ALPHA-004', 600)
+    const transfer = await submitDeposit(page.request, 'ALPHA-004', 600, 'micr_failure')
     expect(transfer.state).toBe('Analyzing')
     expect(transfer.review_reason).toBeTruthy()
 
@@ -58,7 +59,7 @@ test.describe('Manual Review E2E', () => {
 
   test('operator approves ALPHA-004 → transfer reaches FundsPosted', async ({ page }) => {
     // Submit a flagged transfer
-    const transfer = await submitDeposit(page.request, 'ALPHA-004', 650)
+    const transfer = await submitDeposit(page.request, 'ALPHA-004', 650, 'micr_failure')
     expect(transfer.state).toBe('Analyzing')
 
     // Approve it
@@ -74,7 +75,7 @@ test.describe('Manual Review E2E', () => {
   })
 
   test('operator rejects ALPHA-005 → transfer shows Rejected', async ({ page }) => {
-    const transfer = await submitDeposit(page.request, 'ALPHA-005', 500)
+    const transfer = await submitDeposit(page.request, 'ALPHA-005', 500, 'amount_mismatch')
     expect(transfer.state).toBe('Analyzing')
 
     // Reject it
@@ -91,7 +92,7 @@ test.describe('Manual Review E2E', () => {
   })
 
   test('operator approval is logged in decision trace', async ({ page }) => {
-    const transfer = await submitDeposit(page.request, 'ALPHA-004', 700)
+    const transfer = await submitDeposit(page.request, 'ALPHA-004', 700, 'micr_failure')
     expect(transfer.state).toBe('Analyzing')
 
     await postAction(page.request, AUTH_ALPHA, {
@@ -109,13 +110,13 @@ test.describe('Manual Review E2E', () => {
   })
 
   test('over-limit: ALPHA-001 $5001 → Rejected by FS (no operator)', async ({ page }) => {
-    const transfer = await submitDeposit(page.request, 'ALPHA-001', 5001)
+    const transfer = await submitDeposit(page.request, 'ALPHA-001', 5001, 'clean_pass')
     expect(transfer.state).toBe('Rejected')
     expect(transfer.error_code).toBe('FS_OVER_DEPOSIT_LIMIT')
   })
 
   test('IRA: ALPHA-IRA → processes with contribution_type', async ({ page }) => {
-    const transfer = await submitDeposit(page.request, 'ALPHA-IRA', 500)
+    const transfer = await submitDeposit(page.request, 'ALPHA-IRA', 500, 'ira_clean_pass')
     // ALPHA-IRA should process (FundsPosted or Analyzing if flagged)
     expect(['FundsPosted', 'Analyzing']).toContain(transfer.state)
 
