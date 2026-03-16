@@ -22,7 +22,7 @@ const (
 var validTransitions = map[TransferState][]TransferState{
 	Requested:   {Validating},
 	Validating:  {Analyzing, Rejected},
-	Analyzing:   {Approved, Rejected},
+	Analyzing:   {Approved, Rejected, Validating},
 	Approved:    {FundsPosted},
 	FundsPosted: {Completed, Returned},
 	Completed:   {Returned},

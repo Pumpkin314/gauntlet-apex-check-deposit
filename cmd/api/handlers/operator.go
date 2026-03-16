@@ -85,8 +85,8 @@ func (h *OperatorHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.TransferID == "" || (req.Action != "APPROVE" && req.Action != "REJECT") {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "transfer_id and action (APPROVE or REJECT) are required"})
+	if req.TransferID == "" || (req.Action != "APPROVE" && req.Action != "REJECT" && req.Action != "REVALIDATE") {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "transfer_id and action (APPROVE, REJECT, or REVALIDATE) are required"})
 		return
 	}
 
@@ -188,6 +188,16 @@ func (h *OperatorHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.InfoContext(ctx, "operator rejected deposit")
+
+	case "REVALIDATE":
+		if err := orchestrator.Transition(ctx, d.Updater, d.Events, d.Notifier, req.TransferID,
+			orchestrator.Analyzing, orchestrator.Validating); err != nil {
+			log.ErrorContext(ctx, "transition Analyzing→Validating failed", "error", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "transition failed"})
+			return
+		}
+		_ = h.Transfers.ClearReviewReason(ctx, req.TransferID)
+		log.InfoContext(ctx, "operator triggered re-validation")
 	}
 
 	// Fetch updated transfer

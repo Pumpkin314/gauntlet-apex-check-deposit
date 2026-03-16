@@ -4,6 +4,8 @@ const API_URL = 'http://localhost:8080'
 
 test.describe('Happy Path E2E', () => {
   test('submit deposit → status shows FundsPosted', async ({ page }) => {
+    const start = Date.now()
+
     // Login as Alice Johnson (ALPHA-001)
     await page.goto('/login')
     await expect(page.locator('h1')).toContainText('Investor Login')
@@ -38,6 +40,9 @@ test.describe('Happy Path E2E', () => {
 
     // Status page should show FundsPosted state
     await expect(page.locator('text=Funds available')).toBeVisible({ timeout: 10000 })
+
+    const elapsed = Date.now() - start
+    expect(elapsed).toBeLessThan(15000)
   })
 
   test('/admin/ledger shows correct balances', async ({ page }) => {

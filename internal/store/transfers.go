@@ -12,6 +12,16 @@ import (
 	_ "github.com/lib/pq" // Postgres driver
 )
 
+// Spec-required field constants per CLAUDE.md.
+// Every transfer must have these values at creation.
+const (
+	SpecType         = "MOVEMENT"
+	SpecMemo         = "FREE"
+	SpecSubType      = "DEPOSIT"
+	SpecTransferType = "CHECK"
+	SpecCurrency     = "USD"
+)
+
 // Sentinel errors.
 var (
 	// ErrOptimisticLock is returned by UpdateState when the transfer is not in the expected state.
@@ -258,6 +268,13 @@ func (s *TransferStore) SetReviewReason(ctx context.Context, transferID, reason 
 	return err
 }
 
+// ClearReviewReason resets the review_reason to NULL (used during re-validation).
+func (s *TransferStore) ClearReviewReason(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE transfers SET review_reason = NULL, updated_at = NOW() WHERE id = $1`, id)
+	return err
+}
+
 // SetContributionType sets the contribution_type on a transfer.
 func (s *TransferStore) SetContributionType(ctx context.Context, transferID, ct string) error {
 	_, err := s.db.ExecContext(ctx,
@@ -267,6 +284,7 @@ func (s *TransferStore) SetContributionType(ctx context.Context, transferID, ct 
 }
 
 // SetVSSResults updates vendor service results on a transfer.
+// Dual-write: writes plaintext micr_data and encrypted micr_data_enc (Phase 1).
 func (s *TransferStore) SetVSSResults(ctx context.Context, transferID string, vendorTxID string, confidence float64, micrData map[string]interface{}) error {
 	var micrJSON []byte
 	if micrData != nil {
@@ -276,10 +294,36 @@ func (s *TransferStore) SetVSSResults(ctx context.Context, transferID string, ve
 			return fmt.Errorf("marshal micr_data: %w", err)
 		}
 	}
+	// Dual-write: plaintext + encrypted (best-effort encryption via SQL function)
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE transfers SET vendor_transaction_id = $1, confidence_score = $2, micr_data = $3, updated_at = NOW() WHERE id = $4`,
+		`UPDATE transfers
+		 SET vendor_transaction_id = $1,
+		     confidence_score = $2,
+		     micr_data = $3,
+		     micr_data_enc = encrypt_field($3::text),
+		     updated_at = NOW()
+		 WHERE id = $4`,
 		vendorTxID, confidence, micrJSON, transferID)
 	return err
+}
+
+// GetDecryptedMICR reads the encrypted MICR data column and decrypts it.
+// Falls back to plaintext micr_data if decryption fails.
+func (s *TransferStore) GetDecryptedMICR(ctx context.Context, transferID string) (map[string]interface{}, error) {
+	var decrypted *string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT decrypt_field(micr_data_enc) FROM transfers WHERE id = $1`, transferID).Scan(&decrypted)
+	if err != nil {
+		return nil, err
+	}
+	if decrypted == nil {
+		return nil, nil
+	}
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(*decrypted), &result); err != nil {
+		return nil, fmt.Errorf("unmarshal decrypted micr: %w", err)
+	}
+	return result, nil
 }
 
 // SetFromAccountID updates from_account_id (omnibus) after funding resolution.

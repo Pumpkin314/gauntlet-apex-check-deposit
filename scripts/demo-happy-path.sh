@@ -11,6 +11,7 @@ set -euo pipefail
 API_URL="${1:-http://localhost:8080}"
 PASS=0
 FAIL=0
+SCRIPT_START=$(date +%s)
 
 pass() { ((PASS++)); printf "  \033[32mPASS\033[0m %s\n" "$1"; }
 fail() { ((FAIL++)); printf "  \033[31mFAIL\033[0m %s\n" "$1"; }
@@ -31,6 +32,7 @@ IDEM_KEY="demo-happy-$(date +%s%N)"
 # 3. Submit deposit (Clean Pass — ALPHA-001, $500)
 echo ""
 echo "2. Submit deposit (ALPHA-001, \$500)"
+DEPOSIT_START=$(date +%s)
 RESULT=$(curl -sf -X POST "$API_URL/deposits" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDEM_KEY" \
@@ -51,6 +53,10 @@ check "$MEMO" "FREE" "memo = FREE"
 check "$SUB_TYPE" "DEPOSIT" "sub_type = DEPOSIT"
 check "$TRANSFER_TYPE" "CHECK" "transfer_type = CHECK"
 check "$CURRENCY" "USD" "currency = USD"
+
+DEPOSIT_END=$(date +%s)
+DEPOSIT_ELAPSED=$((DEPOSIT_END - DEPOSIT_START))
+if [ "$DEPOSIT_ELAPSED" -le 10 ]; then pass "Full flow completed in ${DEPOSIT_ELAPSED}s (<= 10s)"; else fail "Full flow took ${DEPOSIT_ELAPSED}s (> 10s)"; fi
 
 # 4. GET /deposits/:id
 echo ""
@@ -177,6 +183,14 @@ HEALTHY2=$(echo "$HEALTH_LEDGER2" | python3 -c "import sys,json; print(json.load
 SUM2=$(echo "$HEALTH_LEDGER2" | python3 -c "import sys,json; print(json.load(sys.stdin)['sum'])")
 check "$HEALTHY2" "True" "Ledger still healthy after settlement"
 check "$SUM2" "0.00" "Reconciliation still = 0.00"
+
+# Timing summary
+SCRIPT_END=$(date +%s)
+SCRIPT_ELAPSED=$((SCRIPT_END - SCRIPT_START))
+echo ""
+echo "14. Script timing"
+echo "  Total elapsed: ${SCRIPT_ELAPSED}s"
+if [ "$SCRIPT_ELAPSED" -le 30 ]; then pass "Total script completed in ${SCRIPT_ELAPSED}s (<= 30s)"; else fail "Total script took ${SCRIPT_ELAPSED}s (> 30s)"; fi
 
 # Summary
 echo ""

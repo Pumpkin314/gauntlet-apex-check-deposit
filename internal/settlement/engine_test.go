@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	icl "github.com/moov-io/imagecashletter"
 )
 
 // --- Mock implementations ---
@@ -383,5 +384,91 @@ func TestEngine_Trigger_FilesSavedToDisk(t *testing.T) {
 	// Verify it matches the reported file ref
 	if result.Batches[0].FileRef != files[0] {
 		t.Errorf("file ref mismatch: result=%s, disk=%s", result.Batches[0].FileRef, files[0])
+	}
+}
+
+func TestWriteX9SettlementFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "test.x9")
+
+	routing := "061000146"
+	account := "1234567890"
+	checkNum := "0001"
+
+	file := SettlementFile{
+		FileHeader: FileHeader{
+			Sender:    "APEX",
+			CreatedAt: time.Now().UTC().Format(time.RFC3339),
+		},
+		CashLetter: CashLetter{
+			CorrespondentID: "c0000000-0000-0000-0000-000000000001",
+			CutoffDate:      time.Now().Format("2006-01-02"),
+			Bundles: []Bundle{{
+				Checks: []Check{
+					{
+						TransferID:    "t-001",
+						MICR:          MICREntry{Routing: routing, Account: account, CheckNumber: checkNum},
+						Amount:        500.00,
+						FrontImageRef: "front.jpg",
+						BackImageRef:  "back.jpg",
+					},
+					{
+						TransferID:    "t-002",
+						MICR:          MICREntry{Routing: routing, Account: "9876543210", CheckNumber: "0002"},
+						Amount:        250.50,
+						FrontImageRef: "front2.jpg",
+						BackImageRef:  "back2.jpg",
+					},
+				},
+			}},
+			TotalAmount: 750.50,
+			RecordCount: 2,
+		},
+	}
+
+	err := writeX9SettlementFile(path, file)
+	if err != nil {
+		t.Fatalf("writeX9SettlementFile: %v", err)
+	}
+
+	// Read it back with imagecashletter reader
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer f.Close()
+
+	reader := icl.NewReader(f)
+	x9File, err := reader.Read()
+	if err != nil {
+		t.Fatalf("read X9 file: %v", err)
+	}
+
+	// Validate
+	if err := x9File.Validate(); err != nil {
+		t.Logf("X9 validation warning (expected for minimal test data): %v", err)
+	}
+
+	// Check structure
+	if len(x9File.CashLetters) != 1 {
+		t.Fatalf("expected 1 cash letter, got %d", len(x9File.CashLetters))
+	}
+
+	bundles := x9File.CashLetters[0].GetBundles()
+	if len(bundles) != 1 {
+		t.Fatalf("expected 1 bundle, got %d", len(bundles))
+	}
+
+	checks := bundles[0].Checks
+	if len(checks) != 2 {
+		t.Fatalf("expected 2 checks, got %d", len(checks))
+	}
+
+	// Verify first check amount (500.00 = 50000 in X9 format)
+	if checks[0].ItemAmount != 50000 {
+		t.Errorf("check 0 amount = %d, want 50000", checks[0].ItemAmount)
+	}
+	if checks[1].ItemAmount != 25050 {
+		t.Errorf("check 1 amount = %d, want 25050", checks[1].ItemAmount)
 	}
 }

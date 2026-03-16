@@ -98,6 +98,7 @@ func TestValidTransitions(t *testing.T) {
 		{orchestrator.Validating, orchestrator.Rejected},
 		{orchestrator.Analyzing, orchestrator.Approved},
 		{orchestrator.Analyzing, orchestrator.Rejected},
+		{orchestrator.Analyzing, orchestrator.Validating},
 		{orchestrator.Approved, orchestrator.FundsPosted},
 		{orchestrator.FundsPosted, orchestrator.Completed},
 		{orchestrator.FundsPosted, orchestrator.Returned},

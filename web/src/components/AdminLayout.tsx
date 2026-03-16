@@ -131,6 +131,9 @@ export default function AdminLayout() {
           <NavLink to="/admin/ledger" style={({ isActive }) => navLinkStyle(isActive)}>
             Ledger
           </NavLink>
+          <NavLink to="/admin/risk" style={({ isActive }) => navLinkStyle(isActive)}>
+            Risk
+          </NavLink>
         </nav>
       </aside>
       <div className="admin-content">

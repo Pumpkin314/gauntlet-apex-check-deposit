@@ -1,6 +1,9 @@
 services:
   postgres:
     image: postgres:16-alpine
+    command: >
+      postgres
+      -c "app.encryption_key=dev-encryption-key-change-in-production"
     environment:
       POSTGRES_USER: apex
       POSTGRES_PASSWORD: apex
@@ -29,10 +32,14 @@ services:
       JWT_SECRET: dev-secret-change-in-production
       SETTLEMENT_BANK_TOKEN: dev-settlement-token
       SCENARIOS_PATH: /scenarios/scenarios.yaml
+      REDIS_URL: redis://redis:6379
+      ENCRYPTION_KEY: dev-encryption-key-change-in-production
     volumes:
       - check-images:/data/images
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -67,6 +74,16 @@ services:
       SETTLEMENT_BANK_TOKEN: dev-settlement-token
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5

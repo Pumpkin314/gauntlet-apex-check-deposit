@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"strings"
+
+	fbauth "firebase.google.com/go/v4/auth"
 )
 
 type contextKey string
@@ -13,6 +15,12 @@ const (
 	CtxCorrespondentID contextKey = "correspondent_id"
 	CtxOperatorID      contextKey = "operator_id"
 	CtxAccountID       contextKey = "account_id"
+)
+
+// Auth mode constants.
+const (
+	AuthModeDemo = "demo"
+	AuthModeGCP  = "gcp"
 )
 
 // DemoToken represents a hardcoded token for the demo environment.
@@ -87,6 +95,61 @@ func Auth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		next.ServeHTTP(w, r.WithContext(ctx))
+	}
+}
+
+// FirebaseAuth returns middleware that validates Firebase JWT tokens and
+// extracts custom claims (role, correspondent_id, operator_id, account_id).
+func FirebaseAuth(client *fbauth.Client) func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				http.Error(w, `{"error":"missing Authorization header"}`, http.StatusUnauthorized)
+				return
+			}
+
+			idToken := strings.TrimPrefix(authHeader, "Bearer ")
+			if idToken == authHeader {
+				http.Error(w, `{"error":"invalid Authorization format, expected Bearer <token>"}`, http.StatusUnauthorized)
+				return
+			}
+
+			token, err := client.VerifyIDToken(r.Context(), idToken)
+			if err != nil {
+				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
+				return
+			}
+
+			ctx := r.Context()
+
+			// Extract custom claims
+			if role, ok := token.Claims["role"].(string); ok {
+				ctx = context.WithValue(ctx, CtxRole, role)
+			}
+			if corrID, ok := token.Claims["correspondent_id"].(string); ok {
+				ctx = context.WithValue(ctx, CtxCorrespondentID, corrID)
+			}
+			if opID, ok := token.Claims["operator_id"].(string); ok {
+				ctx = context.WithValue(ctx, CtxOperatorID, opID)
+			}
+			if acctID, ok := token.Claims["account_id"].(string); ok {
+				ctx = context.WithValue(ctx, CtxAccountID, acctID)
+			}
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		}
+	}
+}
+
+// NewAuthMiddleware returns the appropriate auth middleware based on mode.
+// "gcp" mode uses Firebase JWT validation; "demo" (default) uses hardcoded tokens.
+func NewAuthMiddleware(mode string, firebaseClient *fbauth.Client) func(http.HandlerFunc) http.HandlerFunc {
+	if mode == AuthModeGCP && firebaseClient != nil {
+		return FirebaseAuth(firebaseClient)
+	}
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return Auth(next)
 	}
 }
 

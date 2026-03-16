@@ -1,5 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useState } from 'react'
 import Header from './components/Header'
 import { setAuthToken } from './api/client'
 import AdminLayout from './components/AdminLayout'
@@ -10,6 +10,7 @@ import QueuePage from './pages/QueuePage'
 import LedgerPage from './pages/LedgerPage'
 import InvestorLoginPage from './pages/InvestorLoginPage'
 import InvestorDashboardPage from './pages/InvestorDashboardPage'
+import RiskDashboardPage from './pages/RiskDashboardPage'
 
 export interface DemoUser {
   id: string
@@ -34,15 +35,20 @@ export interface InvestorAccount {
 function App() {
   const [currentUser, setCurrentUser] = useState<DemoUser>(DEMO_USERS[0])
   const [investorAccount, setInvestorAccount] = useState<InvestorAccount | null>(null)
+  const location = useLocation()
+  const isAdmin = location.pathname.startsWith('/admin')
 
-  // Sync auth token whenever the demo user changes
-  useEffect(() => {
-    if (investorAccount) {
-      setAuthToken(`investor:${investorAccount.code}`)
-    } else {
-      setAuthToken(currentUser.id)
-    }
-  }, [currentUser, investorAccount])
+  // Synchronously set the auth token every render — ensures child components
+  // always fetch with the correct token, even on the very first mount.
+  // Investor tokens must match the demo tokens in the backend auth middleware.
+  if (isAdmin || !investorAccount) {
+    setAuthToken(currentUser.id)
+  } else {
+    const investorToken = investorAccount.code.startsWith('BETA')
+      ? 'investor-beta'
+      : 'investor-alpha'
+    setAuthToken(investorToken)
+  }
 
   function handleInvestorLogin(account: InvestorAccount) {
     setInvestorAccount(account)
@@ -52,12 +58,18 @@ function App() {
     setInvestorAccount(null)
   }
 
+  // Clear investor session when on admin routes (deferred to avoid render-phase setState)
+  if (isAdmin && investorAccount) {
+    // Schedule clearing after this render completes
+    setTimeout(() => setInvestorAccount(null), 0)
+  }
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header
         currentUser={currentUser}
         onUserChange={setCurrentUser}
-        investorAccount={investorAccount}
+        investorAccount={isAdmin ? null : investorAccount}
         onInvestorLogout={handleInvestorLogout}
       />
       <main style={{ flex: 1, background: '#f4f4f4' }}>
@@ -85,6 +97,7 @@ function App() {
             <Route path="flow" element={<FlowPage />} />
             <Route path="queue" element={<QueuePage />} />
             <Route path="ledger" element={<LedgerPage />} />
+            <Route path="risk" element={<RiskDashboardPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" replace />} />

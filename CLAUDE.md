@@ -32,6 +32,10 @@ var validTransitions = map[TransferState][]TransferState{
 
 Do not add, remove, or rename states. These are the 8 states from the spec. Every transition uses optimistic locking (`UPDATE ... WHERE state = $expected RETURNING id`). Every transition writes a `transfer_events` row and calls `pg_notify`.
 
+#### Milestone 2 Extension
+
+- `Analyzing → Validating` (operator re-validation trigger — allows re-running VSS on resubmitted images)
+
 ### Ledger Invariants
 
 1. Every money movement = exactly 2 ledger entries (one DEBIT, one CREDIT, same amount, same `movement_id`). No exceptions.
@@ -55,7 +59,12 @@ Every transfer must have these at creation (from spec):
 
 ### Do Not Add to MVP
 
-No Redis, Kafka, gRPC, pgcrypto, service workers, localStorage, or TensorFlow. These are Milestone 2+. Mention in the decision log, not in code.
+No Kafka, gRPC, service workers, localStorage, or TensorFlow. These are Milestone 2+. Mention in the decision log, not in code.
+
+**Added in Milestone 2:**
+- Redis — idempotency cache (optional, falls back to Postgres if `REDIS_URL` unset or Redis down)
+- pgcrypto — symmetric encryption for MICR data (dual-write Phase 1; reads still from plaintext)
+- GCP Identity Platform — Firebase JWT auth via `AUTH_MODE=gcp` (demo mode default unchanged)
 
 ### Logging
 

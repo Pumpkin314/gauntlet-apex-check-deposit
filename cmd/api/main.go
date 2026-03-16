@@ -11,7 +11,9 @@ import (
 	"os"
 	"time"
 
+	firebase "firebase.google.com/go/v4"
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/apex-checkout/check-deposit/cmd/api/handlers"
 	"github.com/apex-checkout/check-deposit/cmd/api/middleware"
@@ -89,8 +91,25 @@ func main() {
 		Notifications: notificationStore,
 	}
 
+	// Redis client (optional — falls back to Postgres-only if unset)
+	var redisClient *redis.Client
+	if redisURL := os.Getenv("REDIS_URL"); redisURL != "" {
+		opts, err := redis.ParseURL(redisURL)
+		if err != nil {
+			logger.Warn("invalid REDIS_URL, continuing without Redis", "error", err)
+		} else {
+			redisClient = redis.NewClient(opts)
+			if err := redisClient.Ping(context.Background()).Err(); err != nil {
+				logger.Warn("Redis not reachable, continuing without Redis", "error", err)
+				redisClient = nil
+			} else {
+				logger.Info("Redis connected for idempotency cache")
+			}
+		}
+	}
+
 	// Idempotency store
-	idempStore := &middleware.IdempotencyStore{DB: db}
+	idempStore := &middleware.IdempotencyStore{DB: db, RedisClient: redisClient, Log: logger}
 
 	// Handlers
 	depositHandler := &handlers.DepositHandler{
@@ -165,6 +184,27 @@ func main() {
 		scenariosHandler = nil
 	}
 
+	// Auth middleware — configurable via AUTH_MODE env var
+	authMode := os.Getenv("AUTH_MODE")
+	if authMode == "" {
+		authMode = middleware.AuthModeDemo
+	}
+	authMiddleware := middleware.NewAuthMiddleware(authMode, nil)
+	if authMode == middleware.AuthModeGCP {
+		fbApp, err := firebase.NewApp(context.Background(), nil)
+		if err != nil {
+			logger.Warn("Firebase init failed, falling back to demo auth", "error", err)
+		} else {
+			fbClient, err := fbApp.Auth(context.Background())
+			if err != nil {
+				logger.Warn("Firebase auth client failed, falling back to demo auth", "error", err)
+			} else {
+				authMiddleware = middleware.NewAuthMiddleware(authMode, fbClient)
+				logger.Info("Firebase auth enabled")
+			}
+		}
+	}
+
 	// Routes
 	mux := http.NewServeMux()
 
@@ -204,8 +244,12 @@ func main() {
 	mux.HandleFunc("GET /events/stream", eventsHandler.Stream)
 
 	// Operator (auth-gated)
-	mux.HandleFunc("GET /operator/queue", middleware.Auth(operatorHandler.GetQueue))
-	mux.HandleFunc("POST /operator/actions", middleware.Auth(operatorHandler.PostAction))
+	mux.HandleFunc("GET /operator/queue", authMiddleware(operatorHandler.GetQueue))
+	mux.HandleFunc("POST /operator/actions", authMiddleware(operatorHandler.PostAction))
+
+	// Risk dashboard (admin only)
+	riskHandler := &handlers.RiskHandler{Querier: &sqlRiskQuerier{db: db}}
+	mux.HandleFunc("GET /admin/risk-dashboard", authMiddleware(riskHandler.Dashboard))
 
 	// Settlement
 	mux.HandleFunc("POST /settlement/trigger", fullSettlementHandler.Trigger)
@@ -214,8 +258,8 @@ func main() {
 	mux.HandleFunc("POST /admin/simulate-return", fullSettlementHandler.SimulateReturn)
 
 	// Notifications (investor auth)
-	mux.HandleFunc("GET /notifications", middleware.Auth(notificationHandler.GetNotifications))
-	mux.HandleFunc("PATCH /notifications/{id}/read", middleware.Auth(notificationHandler.MarkRead))
+	mux.HandleFunc("GET /notifications", authMiddleware(notificationHandler.GetNotifications))
+	mux.HandleFunc("PATCH /notifications/{id}/read", authMiddleware(notificationHandler.MarkRead))
 
 	// Scenarios
 	if scenariosHandler != nil {
@@ -319,6 +363,120 @@ func (s *sqlSettlementQuerier) CreateBatch(ctx context.Context) (*handlers.Settl
 		Count:       ready,
 		Status:      "ACKNOWLEDGED",
 	}, nil
+}
+
+// sqlRiskQuerier implements handlers.RiskQuerier using *sql.DB.
+type sqlRiskQuerier struct {
+	db *sql.DB
+}
+
+func (s *sqlRiskQuerier) RejectionRate(ctx context.Context) ([]handlers.CorrespondentMetric, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT correspondent_id::text,
+		       COUNT(*) AS total,
+		       COUNT(*) FILTER (WHERE state = 'Rejected') AS rejected,
+		       COUNT(*) FILTER (WHERE state = 'Rejected') * 100.0 / NULLIF(COUNT(*), 0) AS rate
+		FROM transfers
+		WHERE submitted_at > NOW() - INTERVAL '30 days'
+		GROUP BY correspondent_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var metrics []handlers.CorrespondentMetric
+	for rows.Next() {
+		var m handlers.CorrespondentMetric
+		if err := rows.Scan(&m.CorrespondentID, &m.Total, &m.Rejected, &m.Rate); err != nil {
+			return nil, err
+		}
+		metrics = append(metrics, m)
+	}
+	return metrics, rows.Err()
+}
+
+func (s *sqlRiskQuerier) FloatExposure(ctx context.Context) ([]handlers.CorrespondentMetric, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT correspondent_id::text, COALESCE(SUM(amount), 0) AS amount
+		FROM transfers
+		WHERE state IN ('Approved', 'FundsPosted')
+		GROUP BY correspondent_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var metrics []handlers.CorrespondentMetric
+	for rows.Next() {
+		var m handlers.CorrespondentMetric
+		if err := rows.Scan(&m.CorrespondentID, &m.Amount); err != nil {
+			return nil, err
+		}
+		metrics = append(metrics, m)
+	}
+	return metrics, rows.Err()
+}
+
+func (s *sqlRiskQuerier) ReturnRate(ctx context.Context) ([]handlers.CorrespondentMetric, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT correspondent_id::text,
+		       COUNT(*) FILTER (WHERE state IN ('Completed', 'Returned')) AS completed,
+		       COUNT(*) FILTER (WHERE state = 'Returned') AS returned,
+		       COUNT(*) FILTER (WHERE state = 'Returned') * 100.0 /
+		         NULLIF(COUNT(*) FILTER (WHERE state IN ('Completed', 'Returned')), 0) AS rate
+		FROM transfers
+		WHERE submitted_at > NOW() - INTERVAL '30 days'
+		GROUP BY correspondent_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var metrics []handlers.CorrespondentMetric
+	for rows.Next() {
+		var m handlers.CorrespondentMetric
+		var rate *float64
+		if err := rows.Scan(&m.CorrespondentID, &m.Completed, &m.Returned, &rate); err != nil {
+			return nil, err
+		}
+		if rate != nil {
+			m.Rate = *rate
+		}
+		metrics = append(metrics, m)
+	}
+	return metrics, rows.Err()
+}
+
+func (s *sqlRiskQuerier) TopInvestorsByFloat(ctx context.Context, limit int) ([]handlers.InvestorMetric, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT account_id::text, SUM(amount) AS amount
+		FROM transfers
+		WHERE state IN ('Approved', 'FundsPosted')
+		GROUP BY account_id
+		ORDER BY SUM(amount) DESC
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var metrics []handlers.InvestorMetric
+	for rows.Next() {
+		var m handlers.InvestorMetric
+		if err := rows.Scan(&m.AccountID, &m.Amount); err != nil {
+			return nil, err
+		}
+		metrics = append(metrics, m)
+	}
+	return metrics, rows.Err()
+}
+
+func (s *sqlRiskQuerier) AvgProcessingTimeSecs(ctx context.Context) (float64, error) {
+	var avg *float64
+	err := s.db.QueryRowContext(ctx, `
+		SELECT AVG(EXTRACT(EPOCH FROM updated_at - submitted_at))
+		FROM transfers
+		WHERE state = 'Completed'`).Scan(&avg)
+	if err != nil || avg == nil {
+		return 0, err
+	}
+	return *avg, nil
 }
 
 func corsMiddleware(next http.Handler) http.Handler {

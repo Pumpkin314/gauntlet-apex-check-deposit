@@ -10,7 +10,7 @@ interface Props {
 const CONTRIBUTION_TYPES = ['INDIVIDUAL', 'ROLLOVER', 'EMPLOYER']
 
 export default function OperatorActions({ transfer, onReviewed }: Props) {
-  const [action, setAction] = useState<'APPROVE' | 'REJECT' | null>(null)
+  const [action, setAction] = useState<'APPROVE' | 'REJECT' | 'REVALIDATE' | null>(null)
   const [reason, setReason] = useState('')
   const [contributionOverride, setContributionOverride] = useState(
     transfer.contribution_type_override ?? transfer.contribution_type ?? ''
@@ -33,7 +33,7 @@ export default function OperatorActions({ transfer, onReviewed }: Props) {
         body: JSON.stringify({
           transfer_id: transfer.id,
           action,
-          reason: reason.trim() || `Operator ${action.toLowerCase()}`,
+          reason: reason.trim() || (action === 'REVALIDATE' ? 'Re-scan requested' : `Operator ${action.toLowerCase()}`),
           ...(isIra && contributionOverride ? { contribution_type_override: contributionOverride } : {}),
         }),
       })
@@ -104,6 +104,20 @@ export default function OperatorActions({ transfer, onReviewed }: Props) {
         </div>
       )}
 
+      {action === 'REVALIDATE' && (
+        <div>
+          <label style={labelStyle}>Re-validation reason</label>
+          <textarea
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="e.g., Customer resubmitted clearer images"
+            disabled={submitting}
+            rows={2}
+            style={textareaStyle}
+          />
+        </div>
+      )}
+
       {submitError && (
         <p style={{ color: '#c00', fontSize: '0.85rem', margin: 0 }}>{submitError}</p>
       )}
@@ -117,6 +131,11 @@ export default function OperatorActions({ transfer, onReviewed }: Props) {
             <button onClick={() => setAction('REJECT')} disabled={submitting} style={btnStyle('#c00', submitting)}>
               Reject
             </button>
+            {transfer.state === 'Analyzing' && (
+              <button onClick={() => setAction('REVALIDATE')} disabled={submitting} style={btnStyle('#2563eb', submitting)}>
+                Revalidate
+              </button>
+            )}
           </>
         )}
         {action === 'APPROVE' && (
@@ -133,6 +152,16 @@ export default function OperatorActions({ transfer, onReviewed }: Props) {
           <>
             <button onClick={handleSubmit} disabled={submitting || !reason.trim()} style={btnStyle('#c00', submitting || !reason.trim())}>
               {submitting ? 'Rejecting…' : 'Confirm Reject'}
+            </button>
+            <button onClick={() => { setAction(null); setReason('') }} disabled={submitting} style={btnStyle('#666', submitting)}>
+              Cancel
+            </button>
+          </>
+        )}
+        {action === 'REVALIDATE' && (
+          <>
+            <button onClick={handleSubmit} disabled={submitting} style={btnStyle('#2563eb', submitting)}>
+              {submitting ? 'Sending…' : 'Confirm Revalidate'}
             </button>
             <button onClick={() => { setAction(null); setReason('') }} disabled={submitting} style={btnStyle('#666', submitting)}>
               Cancel

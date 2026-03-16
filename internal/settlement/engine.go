@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	icl "github.com/moov-io/imagecashletter"
 )
 
 // Transfer is the minimal interface the settlement engine needs from a transfer record.
@@ -180,15 +181,30 @@ func (e *Engine) Trigger(ctx context.Context, now time.Time) (*TriggerResult, er
 
 	cutoffDate := now.In(CTLocation)
 
+	settlementFormat := os.Getenv("SETTLEMENT_FORMAT")
+	if settlementFormat == "" {
+		settlementFormat = "json"
+	}
+
 	for corrID, txns := range grouped {
 		file := e.buildSettlementFile(corrID, cutoffDate, txns)
 
-		// Write file to disk
-		filename := fmt.Sprintf("settlement_%s_%s.json", corrID[:8], cutoffDate.Format("2006-01-02"))
-		filePath := filepath.Join(dataDir, filename)
-		if err := writeSettlementFile(filePath, file); err != nil {
-			e.Log.ErrorContext(ctx, "write settlement file failed", "correspondent_id", corrID, "error", err)
-			return nil, fmt.Errorf("write settlement file: %w", err)
+		// Write file to disk — format selected by SETTLEMENT_FORMAT env var
+		var filePath string
+		if settlementFormat == "x9" {
+			filename := fmt.Sprintf("settlement_%s_%s.x9", corrID[:8], cutoffDate.Format("2006-01-02"))
+			filePath = filepath.Join(dataDir, filename)
+			if err := writeX9SettlementFile(filePath, file); err != nil {
+				e.Log.ErrorContext(ctx, "write X9 settlement file failed", "correspondent_id", corrID, "error", err)
+				return nil, fmt.Errorf("write X9 settlement file: %w", err)
+			}
+		} else {
+			filename := fmt.Sprintf("settlement_%s_%s.json", corrID[:8], cutoffDate.Format("2006-01-02"))
+			filePath = filepath.Join(dataDir, filename)
+			if err := writeSettlementFile(filePath, file); err != nil {
+				e.Log.ErrorContext(ctx, "write settlement file failed", "correspondent_id", corrID, "error", err)
+				return nil, fmt.Errorf("write settlement file: %w", err)
+			}
 		}
 
 		// Create batch record
@@ -338,4 +354,89 @@ func writeSettlementFile(path string, file SettlementFile) error {
 		return fmt.Errorf("marshal settlement file: %w", err)
 	}
 	return os.WriteFile(path, data, 0644)
+}
+
+// writeX9SettlementFile writes an X9.37-format settlement file using moov-io/imagecashletter.
+func writeX9SettlementFile(path string, file SettlementFile) error {
+	now := time.Now()
+
+	fh := icl.NewFileHeader()
+	fh.StandardLevel = "35"
+	fh.TestFileIndicator = "T"
+	fh.ImmediateDestination = "061000146"
+	fh.ImmediateOrigin = "026073150"
+	fh.FileCreationDate = now
+	fh.FileCreationTime = now
+	fh.ResendIndicator = "N"
+	fh.ImmediateDestinationName = "Fed Reserve"
+	fh.ImmediateOriginName = "APEX"
+	fh.CompanionDocumentIndicator = ""
+
+	x9File := icl.NewFile()
+	x9File.SetHeader(fh)
+
+	clh := icl.NewCashLetterHeader()
+	clh.CollectionTypeIndicator = "01"
+	clh.DestinationRoutingNumber = "061000146"
+	clh.ECEInstitutionRoutingNumber = "026073150"
+	clh.CashLetterBusinessDate = now
+	clh.CashLetterCreationDate = now
+	clh.CashLetterCreationTime = now
+	clh.RecordTypeIndicator = "I"
+	clh.DocumentationTypeIndicator = "G"
+	clh.CashLetterID = file.CashLetter.CorrespondentID[:8]
+
+	cl := icl.NewCashLetter(clh)
+
+	bh := icl.NewBundleHeader()
+	bh.CollectionTypeIndicator = "01"
+	bh.DestinationRoutingNumber = "061000146"
+	bh.ECEInstitutionRoutingNumber = "026073150"
+	bh.BundleBusinessDate = now
+	bh.BundleCreationDate = now
+	bh.BundleID = "1"
+	bh.BundleSequenceNumber = "1"
+
+	bundle := icl.NewBundle(bh)
+
+	for i, check := range file.CashLetter.Bundles[0].Checks {
+		cd := icl.NewCheckDetail()
+		cd.PayorBankRoutingNumber = check.MICR.Routing
+		if len(cd.PayorBankRoutingNumber) >= 9 {
+			cd.PayorBankCheckDigit = cd.PayorBankRoutingNumber[8:]
+			cd.PayorBankRoutingNumber = cd.PayorBankRoutingNumber[:8]
+		} else if len(cd.PayorBankRoutingNumber) < 8 {
+			cd.PayorBankRoutingNumber = fmt.Sprintf("%-8s", cd.PayorBankRoutingNumber)
+		}
+		cd.OnUs = check.MICR.Account
+		cd.ItemAmount = int(check.Amount * 100)
+		cd.EceInstitutionItemSequenceNumber = fmt.Sprintf("%015d", i+1)
+		cd.DocumentationTypeIndicator = "G"
+		cd.BOFDIndicator = "Y"
+		bundle.AddCheckDetail(cd)
+	}
+
+	cl.AddBundle(bundle)
+
+	if err := cl.Create(); err != nil {
+		return fmt.Errorf("cash letter create: %w", err)
+	}
+	x9File.AddCashLetter(cl)
+
+	if err := x9File.Create(); err != nil {
+		return fmt.Errorf("file create: %w", err)
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("create file: %w", err)
+	}
+	defer f.Close()
+
+	w := icl.NewWriter(f)
+	if err := w.Write(x9File); err != nil {
+		return fmt.Errorf("write X9: %w", err)
+	}
+
+	return nil
 }

@@ -80,7 +80,7 @@ Architectural and technology decisions for Apex Mobile Check Deposit (Milestone 
 
 **Alternatives considered:** GCP Identity Platform, Auth0
 
-**Rationale:** Spec doesn't require real auth for MVP. Same `middleware.Auth()` interface -- swap to Firebase JWT custom claims in Milestone 2. Demo tokens enable deterministic testing and scripted demos without external auth dependencies.
+**Rationale:** Spec doesn't require real auth for MVP. Same `middleware.Auth()` interface. GCP Identity Platform now supported via `AUTH_MODE=gcp`. Firebase JWT custom claims (`role`, `correspondent_id`, `operator_id`, `account_id`) replace demo tokens. Demo mode (`AUTH_MODE=demo`, default) remains unchanged for testing and scripted demos.
 
 ---
 
@@ -90,7 +90,7 @@ Architectural and technology decisions for Apex Mobile Check Deposit (Milestone 
 
 **Alternatives considered:** Real X9.37 binary (moov-io/imagecashletter)
 
-**Rationale:** Spec allows "structured equivalent." JSON is human-readable for demos and debugging. The structure mirrors X9 concepts (file header, cash letter, bundles, checks). X9 binary upgrade in Milestone 2 using `moov-io/imagecashletter`.
+**Rationale:** Spec allows "structured equivalent." JSON is human-readable for demos and debugging. The structure mirrors X9 concepts (file header, cash letter, bundles, checks). X9 binary format now available via `SETTLEMENT_FORMAT=x9`. JSON remains default. `moov-io/imagecashletter` used for encoding.
 
 ---
 
@@ -121,3 +121,43 @@ Architectural and technology decisions for Apex Mobile Check Deposit (Milestone 
 **Alternatives considered:** Hardcoded `$30` constant, environment variable
 
 **Rationale:** Fee varies per correspondent (seed data: Alpha = $30, Beta = $25). Hardcoding violates the multi-correspondent requirement. Config-driven fees enable correspondent onboarding without code changes.
+
+---
+
+## 13. Risk Dashboard — PRD-First Approach
+
+**Choice:** Write a mini-PRD (`docs/risk_dashboard_prd.md`) defining metrics, API contract, and SQL queries before writing code.
+
+**Alternatives considered:** Jump straight to implementation.
+
+**Rationale:** Metrics are defined by operational need (rejection rate, float exposure, return rate, top investors, processing time). PRD-first ensures alignment on what to measure before building the dashboard. All queries use existing `transfers` table — no new tables or migrations required.
+
+---
+
+## 14. Operator Re-validation — Analyzing → Validating
+
+**Choice:** Add `Analyzing → Validating` transition as a Milestone 2 state machine extension. Operators can trigger re-validation when better images are submitted.
+
+**Alternatives considered:** New state (ReValidating), manual VSS override.
+
+**Rationale:** Re-using the existing Validating state keeps the state machine minimal. The REVALIDATE action clears `review_reason` and transitions back to Validating so the transfer can be re-processed through VSS. CLAUDE.md updated to document the extension.
+
+---
+
+## 15. Redis Idempotency Cache — Read-Through Optimization
+
+**Choice:** Add Redis as an optional read-through cache for the idempotency store. Postgres remains the authoritative source.
+
+**Alternatives considered:** Redis-only (no Postgres fallback), in-memory LRU cache.
+
+**Rationale:** Redis provides sub-millisecond lookups for repeat requests. Best-effort: all Redis operations are wrapped in error handling — if Redis is down or not configured (`REDIS_URL` unset), the system falls back to Postgres-only behavior. 24-hour TTL matches the idempotency key lifecycle. No data consistency risk since Postgres is always written first.
+
+---
+
+## 16. pgcrypto — Symmetric Encryption for MICR Data
+
+**Choice:** Use `pgp_sym_encrypt`/`pgp_sym_decrypt` from pgcrypto extension for MICR data at rest. Dual-write migration strategy.
+
+**Alternatives considered:** Application-level encryption (AES-GCM), AWS KMS/GCP KMS.
+
+**Rationale:** Phase 1 (current): write encrypted `micr_data_enc` alongside plaintext `micr_data`. Reads stay on plaintext to avoid disrupting API responses. Phase 2: switch reads to encrypted column. Phase 3: drop plaintext columns. This ensures zero-downtime migration with rollback safety at each phase. Encryption key stored as a Postgres configuration parameter (`app.encryption_key`).
