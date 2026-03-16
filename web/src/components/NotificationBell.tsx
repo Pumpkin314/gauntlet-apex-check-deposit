@@ -109,10 +109,11 @@ export default function NotificationBell({ userKey }: Props) {
 
       {open && (
         <div style={{
-          position: 'absolute',
-          right: 0,
-          top: 'calc(100% + 6px)',
-          width: '320px',
+          position: 'fixed',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          top: '60px',
+          width: 'min(320px, calc(100vw - 1rem))',
           background: '#fff',
           border: '1px solid #ddd',
           borderRadius: '6px',
