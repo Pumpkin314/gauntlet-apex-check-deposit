@@ -13,21 +13,48 @@ import (
 	"github.com/lib/pq"
 )
 
+// BroadcasterConfig holds tunable parameters for the SSE broadcaster.
+type BroadcasterConfig struct {
+	PGListenerMinReconnect time.Duration // pq.Listener minimum reconnect delay
+	PGListenerMaxReconnect time.Duration // pq.Listener maximum reconnect delay
+	PGListenerPingInterval time.Duration // interval between pg listener health pings
+	ChannelBufferSize      int           // per-client event channel buffer
+	KeepaliveInterval      time.Duration // SSE keepalive comment interval
+}
+
+// DefaultBroadcasterConfig returns production defaults.
+func DefaultBroadcasterConfig() BroadcasterConfig {
+	return BroadcasterConfig{
+		PGListenerMinReconnect: 10 * time.Second,
+		PGListenerMaxReconnect: time.Minute,
+		PGListenerPingInterval: 90 * time.Second,
+		ChannelBufferSize:      64,
+		KeepaliveInterval:      30 * time.Second,
+	}
+}
+
 // Broadcaster listens to pg_notify on a channel and fans out messages to SSE clients.
 type Broadcaster struct {
-	mu      sync.RWMutex
+	mu     sync.RWMutex
 	clients map[chan []byte]struct{}
 	log     *slog.Logger
+	cfg     BroadcasterConfig
 }
 
 // NewBroadcaster creates a Broadcaster and starts listening on the given pg_notify channel.
 func NewBroadcaster(dbURL string, channel string, log *slog.Logger) (*Broadcaster, error) {
+	return NewBroadcasterWithConfig(dbURL, channel, log, DefaultBroadcasterConfig())
+}
+
+// NewBroadcasterWithConfig creates a Broadcaster with explicit tuning parameters.
+func NewBroadcasterWithConfig(dbURL string, channel string, log *slog.Logger, cfg BroadcasterConfig) (*Broadcaster, error) {
 	b := &Broadcaster{
 		clients: make(map[chan []byte]struct{}),
 		log:     log,
+		cfg:     cfg,
 	}
 
-	listener := pq.NewListener(dbURL, 10*time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
+	listener := pq.NewListener(dbURL, cfg.PGListenerMinReconnect, cfg.PGListenerMaxReconnect, func(ev pq.ListenerEventType, err error) {
 		if err != nil {
 			log.Error("pg listener event", "error", err)
 		}
@@ -56,7 +83,7 @@ func (b *Broadcaster) listen(l *pq.Listener) {
 				continue
 			}
 			b.broadcast([]byte(n.Extra))
-		case <-time.After(90 * time.Second):
+		case <-time.After(b.cfg.PGListenerPingInterval):
 			if err := l.Ping(); err != nil {
 				b.log.Error("pg listener ping failed", "error", err)
 			}
@@ -78,7 +105,7 @@ func (b *Broadcaster) broadcast(data []byte) {
 
 // Subscribe registers a new client and returns its event channel.
 func (b *Broadcaster) Subscribe() chan []byte {
-	ch := make(chan []byte, 64)
+	ch := make(chan []byte, b.cfg.ChannelBufferSize)
 	b.mu.Lock()
 	b.clients[ch] = struct{}{}
 	b.mu.Unlock()
@@ -123,8 +150,7 @@ func (b *Broadcaster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer b.Unsubscribe(ch)
 
 	ctx := r.Context()
-	// Send keepalive comment every 30s
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(b.cfg.KeepaliveInterval)
 	defer ticker.Stop()
 
 	for {

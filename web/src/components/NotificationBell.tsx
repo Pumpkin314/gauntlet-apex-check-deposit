@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { apiFetch } from '../api/client'
+import { POLL_NOTIFICATIONS_MS } from '../config'
 
 interface Notification {
   id: string
@@ -39,7 +40,7 @@ export default function NotificationBell({ userKey }: Props) {
 
   // Poll every 10 seconds
   useEffect(() => {
-    const interval = setInterval(fetchNotifications, 10_000)
+    const interval = setInterval(fetchNotifications, POLL_NOTIFICATIONS_MS)
     return () => clearInterval(interval)
   }, [fetchNotifications])
 

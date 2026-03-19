@@ -16,6 +16,7 @@ import (
 	"github.com/apex-checkout/check-deposit/cmd/api/handlers"
 	"github.com/apex-checkout/check-deposit/cmd/api/middleware"
 	"github.com/apex-checkout/check-deposit/internal/cloudauth"
+	"github.com/apex-checkout/check-deposit/internal/config"
 	"github.com/apex-checkout/check-deposit/internal/events"
 	"github.com/apex-checkout/check-deposit/internal/funding"
 	"github.com/apex-checkout/check-deposit/internal/ledger"
@@ -35,6 +36,7 @@ func main() {
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	cfg := config.Load()
 
 	// Connect to database
 	dbURL := os.Getenv("DATABASE_URL")
@@ -44,14 +46,14 @@ func main() {
 	}
 	defer db.Close()
 	// Retry db.Ping — Cloud SQL proxy socket may take a few seconds
-	for i := 0; i < 30; i++ {
+	for i := 0; i < cfg.DBRetryCount; i++ {
 		if err := db.Ping(); err == nil {
 			break
-		} else if i == 29 {
-			log.Fatalf("failed to ping database after 30 retries: %v", err)
+		} else if i == cfg.DBRetryCount-1 {
+			log.Fatalf("failed to ping database after %d retries: %v", cfg.DBRetryCount, err)
 		} else {
 			logger.Warn("waiting for database...", "attempt", i+1, "error", err)
-			time.Sleep(2 * time.Second)
+			time.Sleep(cfg.DBRetryDelay)
 		}
 	}
 
@@ -64,7 +66,7 @@ func main() {
 
 	// Create services
 	ledgerService := ledger.New(ledgerStore, logger)
-	fundingEngine := funding.NewEngine(accountStore)
+	fundingEngine := funding.NewEngineWithDupWindow(accountStore, cfg.DupDetectionWindow)
 
 	vssURL := os.Getenv("VSS_URL")
 	if vssURL == "" {
@@ -99,6 +101,7 @@ func main() {
 		Correspondents:   correspondentStore,
 		OrchestratorDeps: orchDeps,
 		Log:              logger,
+		MaxUploadBytes:   cfg.MaxUploadBytes,
 	}
 
 	ledgerHandler := &handlers.LedgerHandler{
@@ -115,7 +118,13 @@ func main() {
 	)
 
 	// SSE broadcaster for real-time events
-	broadcaster, err := events.NewBroadcaster(dbURL, "transfer_updates", logger)
+	broadcaster, err := events.NewBroadcasterWithConfig(dbURL, "transfer_updates", logger, events.BroadcasterConfig{
+		PGListenerMinReconnect: cfg.PGListenerMinReconnect,
+		PGListenerMaxReconnect: cfg.PGListenerMaxReconnect,
+		PGListenerPingInterval: cfg.PGListenerPingInterval,
+		ChannelBufferSize:      cfg.SSEChannelBuffer,
+		KeepaliveInterval:      cfg.SSEKeepaliveInterval,
+	})
 	if err != nil {
 		log.Fatalf("failed to start SSE broadcaster: %v", err)
 	}

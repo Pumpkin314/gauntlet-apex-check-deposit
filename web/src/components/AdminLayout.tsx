@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useOutletContext } from 'react-router-dom'
+import { SSE_RECONNECT_MS, EVENT_LOG_MAX } from '../config'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 const SSE_URL = import.meta.env.VITE_SSE_URL || API_URL
@@ -77,7 +78,7 @@ export default function AdminLayout() {
       es.onerror = () => {
         setConnected(false)
         es.close()
-        setTimeout(connect, 3000)
+        setTimeout(connect, SSE_RECONNECT_MS)
       }
 
       es.addEventListener('transfer_update', (e) => {
@@ -91,7 +92,7 @@ export default function AdminLayout() {
             timestamp: new Date().toISOString(),
           }
 
-          setEventLog(prev => [event, ...prev].slice(0, 100))
+          setEventLog(prev => [event, ...prev].slice(0, EVENT_LOG_MAX))
 
           setTransfers(prev => {
             const next = new Map(prev)
