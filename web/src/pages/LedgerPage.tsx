@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { POLL_LEDGER_MS } from '../config'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 
@@ -34,7 +35,7 @@ export default function LedgerPage() {
 
   useEffect(() => {
     fetchData()
-    const interval = setInterval(fetchData, 5000)
+    const interval = setInterval(fetchData, POLL_LEDGER_MS)
     return () => clearInterval(interval)
   }, [])
 

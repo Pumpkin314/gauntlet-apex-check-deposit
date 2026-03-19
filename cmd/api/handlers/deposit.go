@@ -22,6 +22,7 @@ type DepositHandler struct {
 	Correspondents   *store.CorrespondentStore
 	OrchestratorDeps orchestrator.Deps
 	Log              *slog.Logger
+	MaxUploadBytes   int64 // 0 = default 10 MB
 }
 
 // depositRequest is the JSON body for POST /deposits.
@@ -40,8 +41,11 @@ func (h *DepositHandler) CreateDeposit(w http.ResponseWriter, r *http.Request) {
 
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/") {
-		// Parse multipart form (max 10MB)
-		if err := r.ParseMultipartForm(10 << 20); err != nil {
+		maxBytes := h.MaxUploadBytes
+		if maxBytes <= 0 {
+			maxBytes = 10 << 20 // 10 MB default
+		}
+		if err := r.ParseMultipartForm(maxBytes); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid multipart form"})
 			return
 		}

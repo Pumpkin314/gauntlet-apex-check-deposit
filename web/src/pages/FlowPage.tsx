@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAdminSSE } from '../components/AdminLayout'
+import { POLL_SETTLEMENT_MS } from '../config'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 
@@ -48,7 +49,7 @@ export default function FlowPage() {
 
   useEffect(() => {
     fetchSettlement()
-    const interval = setInterval(fetchSettlement, 5000)
+    const interval = setInterval(fetchSettlement, POLL_SETTLEMENT_MS)
     return () => clearInterval(interval)
   }, [fetchSettlement])
 

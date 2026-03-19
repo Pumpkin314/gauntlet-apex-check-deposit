@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../api/client'
+import { LARGE_DEPOSIT_THRESHOLD, LOW_CONFIDENCE_THRESHOLD } from '../config'
 import TransferDetail from '../components/TransferDetail'
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
@@ -43,10 +44,10 @@ export interface RiskBadge {
 
 export function getRiskBadges(t: QueueTransfer): RiskBadge[] {
   const badges: RiskBadge[] = []
-  if (t.amount > 2000) {
+  if (t.amount > LARGE_DEPOSIT_THRESHOLD) {
     badges.push({ label: 'Large deposit', color: 'yellow' })
   }
-  if (t.confidence_score !== null && t.confidence_score !== undefined && t.confidence_score < 0.9) {
+  if (t.confidence_score !== null && t.confidence_score !== undefined && t.confidence_score < LOW_CONFIDENCE_THRESHOLD) {
     badges.push({ label: 'Low confidence', color: 'yellow' })
   }
   if (t.review_reason === 'VSS_MICR_READ_FAIL') {

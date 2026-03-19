@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { apiFetch } from '../api/client'
+import { POLL_STATUS_MS } from '../config'
 import DepositError from '../components/DepositError'
 
 interface Transfer {
@@ -47,7 +48,7 @@ const STATE_STYLES: Record<string, { color: string; label: string }> = {
   Returned:    { color: '#6f42c1', label: 'Returned' },
 }
 
-const POLL_INTERVAL_MS = 2000
+const POLL_INTERVAL_MS = POLL_STATUS_MS
 
 export default function StatusPage() {
   const { id } = useParams<{ id: string }>()

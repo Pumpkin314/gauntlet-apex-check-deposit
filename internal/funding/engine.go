@@ -15,9 +15,18 @@ type Engine struct {
 	dupWindow   time.Duration
 }
 
+// DefaultDupWindow is the default duplicate detection window.
+const DefaultDupWindow = 5 * time.Minute
+
 // NewEngine constructs a funding Engine. resolver provides omnibus account lookup;
 // inject a mock in tests or the real store.AccountStore in production.
 func NewEngine(resolver OmnibusResolver) *Engine {
+	return NewEngineWithDupWindow(resolver, DefaultDupWindow)
+}
+
+// NewEngineWithDupWindow constructs a funding Engine with a configurable duplicate
+// detection window. Use NewEngine for the default (5 minutes).
+func NewEngineWithDupWindow(resolver OmnibusResolver, dupWindow time.Duration) *Engine {
 	ctRule := ContributionTypeRule{}
 	omnRule := OmnibusResolutionRule{Resolver: resolver}
 	return &Engine{
@@ -30,7 +39,7 @@ func NewEngine(resolver OmnibusResolver) *Engine {
 		},
 		ctRule:      ctRule,
 		omnibusRule: omnRule,
-		dupWindow:   5 * time.Minute,
+		dupWindow:   dupWindow,
 	}
 }
 
